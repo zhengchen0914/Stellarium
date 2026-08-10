@@ -1,0 +1,14 @@
+# Node
+node_modules/
+
+# 备份与导出
+*.json.bak
+
+# 系统文件
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 编辑器
+.vscode/
+.idea/

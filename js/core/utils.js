@@ -1,0 +1,92 @@
+/* 星隅 核心工具（纯逻辑，Node 可测） */
+(function (global) {
+  'use strict';
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  function toDate(v) {
+    if (v instanceof Date) return v;
+    const parts = String(v).split('-').map(Number);
+    return new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1);
+  }
+
+  function dateStr(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+
+  function todayStr() { return dateStr(new Date()); }
+
+  function addDays(v, n) {
+    const d = toDate(v);
+    d.setDate(d.getDate() + n);
+    return dateStr(d);
+  }
+
+  function formatDateCN(v, fmt) {
+    const d = toDate(v);
+    if (fmt === 'YYYY/MM/DD') return d.getFullYear() + '/' + pad2(d.getMonth() + 1) + '/' + pad2(d.getDate());
+    return d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日';
+  }
+
+  function weekdayCN(v) {
+    const names = ['日', '一', '二', '三', '四', '五', '六'];
+    return '星期' + names[toDate(v).getDay()];
+  }
+
+  function monthKey(v) {
+    const d = toDate(v);
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1);
+  }
+
+  function monthRange(key) {
+    const parts = key.split('-').map(Number);
+    const first = new Date(parts[0], parts[1] - 1, 1);
+    const last = new Date(parts[0], parts[1], 0);
+    return { first: dateStr(first), last: dateStr(last) };
+  }
+
+  function weekStart(v, monday = true) {
+    const d = toDate(v);
+    const day = d.getDay();
+    d.setDate(d.getDate() - (monday ? (day === 0 ? 6 : day - 1) : day));
+    return dateStr(d);
+  }
+
+  function addMonths(key, n) {
+    const parts = key.split('-').map(Number);
+    const d = new Date(parts[0], parts[1] - 1 + n, 1);
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1);
+  }
+
+  function uid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10); }
+
+  function clamp(n, min, max) { return Math.min(max, Math.max(min, n)); }
+
+  function money(n) { const v = Number(n) || 0; return (Math.round(v * 100) / 100).toFixed(2); }
+
+  function parseAmount(str) {
+    const m = String(str == null ? '' : str).match(/\d+(\.\d+)?/);
+    return m ? parseFloat(m[0]) : 0;
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function monthDates(key) {
+    const { first, last } = monthRange(key);
+    const out = [];
+    let cur = first;
+    while (cur <= last) { out.push(cur); cur = addDays(cur, 1); }
+    return out;
+  }
+
+  const Utils = {
+    pad2, toDate, dateStr, todayStr, addDays, formatDateCN, weekdayCN, monthKey,
+    monthRange, weekStart, addMonths, uid, clamp, money, parseAmount, escapeHtml, monthDates
+  };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = Utils;
+  global.Stellarium = global.Stellarium || {};
+  global.Stellarium.Utils = Utils;
+})(typeof window !== 'undefined' ? window : globalThis);

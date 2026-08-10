@@ -1,0 +1,76 @@
+/* 星隅 主题变量 */
+:root {
+  --radius: 14px;
+  --radius-sm: 8px;
+  --font: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0a0f24;
+  --bg-2: #101735;
+  --card: rgba(20, 30, 64, 0.72);
+  --card-solid: #141f42;
+  --border: rgba(148, 163, 224, 0.16);
+  --text: #e8ecff;
+  --text-2: #9aa6d6;
+  --text-3: #6b76a8;
+  --accent: #7aa2ff;
+  --accent-2: #b18cff;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --info: #60a5fa;
+  --income: #4ade80;
+  --expense: #f87171;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --hover: rgba(122, 162, 255, 0.12);
+}
+
+:root[data-theme="light"] {
+  --bg: #f4f6fc;
+  --bg-2: #e9edf8;
+  --card: rgba(255, 255, 255, 0.9);
+  --card-solid: #ffffff;
+  --border: rgba(30, 50, 110, 0.14);
+  --text: #1c2340;
+  --text-2: #5a6489;
+  --text-3: #97a0c0;
+  --accent: #4a6cf7;
+  --accent-2: #8a5cf6;
+  --ok: #16a34a;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --info: #2563eb;
+  --income: #16a34a;
+  --expense: #dc2626;
+  --shadow: 0 10px 30px rgba(40, 60, 130, 0.12);
+  --hover: rgba(74, 108, 247, 0.08);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--text);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(122, 162, 255, 0.16), transparent 60%),
+    radial-gradient(900px 500px at 10% 110%, rgba(177, 140, 255, 0.14), transparent 60%),
+    var(--bg);
+  min-height: 100vh;
+}
+
+[data-theme="dark"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 20% 30%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 45% 15%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 70% 60%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 85% 25%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 12% 80%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(2px 2px at 55% 85%, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1px 1px at 92% 75%, rgba(255, 255, 255, 0.5), transparent);
+  opacity: 0.5;
+  z-index: 0;
+}
