@@ -74,3 +74,12 @@ body {
   opacity: 0.5;
   z-index: 0;
 }
+
+/* 自定义壁纸背景层 */
+#wallpaper-layer {
+  position: fixed; inset: 0; z-index: 0;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  pointer-events: none;
+}
+#wallpaper-mask { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+body.has-wallpaper::before { opacity: 0; }

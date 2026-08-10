@@ -25,8 +25,11 @@
     container.innerHTML = '';
 
     container.appendChild(UI.el('div', { class: 'page-head' }, [
-      UI.el('h1', { class: 'page-title' }, greeting() + '，星主'),
-      UI.el('div', { class: 'page-sub' }, U.formatDateCN(U.todayStr()) + ' ' + U.weekdayCN(U.todayStr()))
+      UI.el('div', {}, [
+        UI.el('h1', { class: 'page-title' }, greeting() + '，星主'),
+        UI.el('div', { class: 'page-sub' }, U.formatDateCN(U.todayStr()) + ' ' + U.weekdayCN(U.todayStr()))
+      ]),
+      UI.el('button', { class: 'btn sm ghost wallpaper-btn', onclick: () => global.Stellarium.Wallpaper.openModal() }, '🖼 换壁纸')
     ]));
 
     /* 今日计划卡片 */

@@ -23,7 +23,7 @@
 
   function seedData() {
     return {
-      settings: { appName: '星隅', theme: 'dark', dateFormat: 'YYYY-MM-DD' },
+      settings: { appName: '星隅', theme: 'dark', dateFormat: 'YYYY-MM-DD', wallpaper: null, wallpaperMask: 62 },
       categories: CATEGORIES.map((name, i) => ({ id: 'cat-' + (i + 1), name, color: CAT_COLORS[i], sort: i })),
       commonExercises: EXERCISES.map((name, i) => ({ id: 'ex-' + (i + 1), name })),
       tools: TOOLS.map(x => Object.assign({}, x)),

@@ -45,6 +45,7 @@
   function applyTheme() {
     const theme = (store.snapshot().settings.theme) || 'dark';
     document.documentElement.setAttribute('data-theme', theme);
+    if (global.Stellarium.Wallpaper) global.Stellarium.Wallpaper.apply();
   }
 
   async function init() {
