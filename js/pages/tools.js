@@ -16,7 +16,7 @@
         dataset: { tool: t.id },
         onclick: () => openTool(container, t)
       }, [
-        (t.id === 'calc' || t.id === 'rand') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
+        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
         UI.el('div', { class: 't-ico' }, t.icon),
         UI.el('div', { class: 't-name' }, t.name)
       ]));
@@ -27,6 +27,7 @@
   function openTool(container, tool) {
     if (tool.id === 'calc') { renderCalc(container); return; }
     if (tool.id === 'rand') { renderRand(container); return; }
+    if (tool.id === 'convert') { renderConvert(container); return; }
     UI.toast('该工具暂未开发，敬请期待', 'info');
   }
 
@@ -241,6 +242,99 @@
     card.appendChild(modeTip);
     card.appendChild(results);
     container.appendChild(card);
+  }
+  /* ============ 单位换算 ============ */
+  function renderConvert(container) {
+    const U = global.Stellarium.Units;
+    container.innerHTML = '';
+    container.appendChild(UI.el('div', { class: 'page-head' }, [
+      UI.el('h1', { class: 'page-title' }, '单位换算'),
+      UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
+    ]));
+    const card = UI.el('div', { class: 'card convert' });
+
+    const catSel = UI.selectInput(U.CATEGORIES.map(c => [c.id, c.name]), 'length', { id: 'convert-cat' });
+    const fromSel = UI.el('select', { id: 'convert-from' });
+    const toSel = UI.el('select', { id: 'convert-to' });
+    const valInput = UI.numInput(1, { id: 'convert-value', step: 'any' });
+    const result = UI.el('div', { class: 'convert-result', id: 'convert-result' }, '—');
+    const refBox = UI.el('div', { id: 'convert-ref' });
+    const swapBtn = UI.el('button', { class: 'btn', id: 'convert-swap', onclick: () => {
+      const t = fromSel.value; fromSel.value = toSel.value; toSel.value = t; update();
+    } }, '⇄ 交换单位');
+
+    function fillUnitSelects() {
+      const cat = U.getCategory(catSel.value);
+      fromSel.innerHTML = '';
+      toSel.innerHTML = '';
+      cat.units.forEach(u => {
+        fromSel.appendChild(UI.el('option', { value: u.id }, u.name));
+        toSel.appendChild(UI.el('option', { value: u.id }, u.name));
+      });
+      const fromId = cat.temp ? 'c' : ((cat.units.find(u => u.factor === 1) || cat.units[0]).id);
+      const toIdx = cat.units.findIndex(u => u.id !== fromId);
+      fromSel.value = fromId;
+      toSel.value = toIdx >= 0 ? cat.units[toIdx].id : fromId;
+      update();
+    }
+
+    function update() {
+      const cat = U.getCategory(catSel.value);
+      const v = parseFloat(valInput.value);
+      const r = U.convert(catSel.value, v, fromSel.value, toSel.value);
+      if (r == null || !isFinite(r)) {
+        result.textContent = '—';
+      } else {
+        const toUnit = cat.units.find(u => u.id === toSel.value);
+        result.textContent = U.format(r) + ' ' + (toUnit ? toUnit.name : '');
+      }
+      renderRef();
+    }
+
+    function renderRef() {
+      refBox.innerHTML = '';
+      const cat = U.getCategory(catSel.value);
+      refBox.appendChild(UI.el('div', { class: 'group-label' }, cat.temp ? '温度换算参考' : '单位参考（1 单位 = 基准值）'));
+      const list = UI.el('div', { class: 'convert-ref-list' });
+      if (cat.temp) {
+        const rows = [
+          ['0°C', '32°F = 273.15K'],
+          ['100°C', '212°F = 373.15K'],
+          ['-40°C', '-40°F = 233.15K']
+        ];
+        rows.forEach(([a, b]) => list.appendChild(UI.el('div', { class: 'convert-ref-row' }, [UI.el('span', {}, a), UI.el('span', {}, b)])));
+      } else {
+        cat.units.forEach(u => {
+          list.appendChild(UI.el('div', { class: 'convert-ref-row' }, [UI.el('span', {}, '1 ' + u.name), UI.el('span', {}, U.format(u.factor) + ' ' + cat.base)]));
+        });
+      }
+      refBox.appendChild(list);
+    }
+
+    catSel.addEventListener('change', fillUnitSelects);
+    fromSel.addEventListener('change', update);
+    toSel.addEventListener('change', update);
+    valInput.addEventListener('input', update);
+
+    const row1 = UI.el('div', { class: 'row' }, [
+      UI.field('类别', catSel)
+    ]);
+    const row2 = UI.el('div', { class: 'row' }, [
+      UI.field('从', fromSel),
+      UI.field('到', toSel)
+    ]);
+    const row3 = UI.el('div', { class: 'row' }, [
+      UI.field('数值', valInput),
+      UI.field('结果', result)
+    ]);
+    card.appendChild(row1);
+    card.appendChild(row2);
+    card.appendChild(UI.el('div', { style: 'margin:4px 0 8px' }, swapBtn));
+    card.appendChild(row3);
+    card.appendChild(UI.el('div', { class: 'muted', style: 'margin-top:10px' }, '说明：月按 30 天、年按 365 天计；数据存储按 1024 进制。'));
+    card.appendChild(refBox);
+    container.appendChild(card);
+    fillUnitSelects();
   }
   global.Stellarium.Router.register('tools', render, '实用小工具');
 })(typeof window !== 'undefined' ? window : globalThis);
