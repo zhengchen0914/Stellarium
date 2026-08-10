@@ -16,7 +16,7 @@
         dataset: { tool: t.id },
         onclick: () => openTool(container, t)
       }, [
-        t.id === 'calc' ? null : UI.el('span', { class: 'soon' }, '即将上线'),
+        (t.id === 'calc' || t.id === 'rand') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
         UI.el('div', { class: 't-ico' }, t.icon),
         UI.el('div', { class: 't-name' }, t.name)
       ]));
@@ -26,6 +26,7 @@
 
   function openTool(container, tool) {
     if (tool.id === 'calc') { renderCalc(container); return; }
+    if (tool.id === 'rand') { renderRand(container); return; }
     UI.toast('该工具暂未开发，敬请期待', 'info');
   }
 
@@ -174,5 +175,72 @@
     card.focus();
   }
 
+  /* ============ 随机数生成器 ============ */
+  function renderRand(container) {
+    container.innerHTML = '';
+    container.appendChild(UI.el('div', { class: 'page-head' }, [
+      UI.el('h1', { class: 'page-title' }, '随机数生成器'),
+      UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
+    ]));
+    const card = UI.el('div', { class: 'card rand' });
+    const minInput = UI.numInput(0, { id: 'rand-min' });
+    const maxInput = UI.numInput(10, { id: 'rand-max' });
+    const countInput = UI.numInput(1, { id: 'rand-count', min: '1', max: '100', step: '1' });
+    const decInput = UI.numInput(0, { id: 'rand-decimals', min: '0', max: '10', step: '1' });
+
+    const modeTip = UI.el('div', { class: 'muted', style: 'margin-top:10px', id: 'rand-mode-tip' });
+    function updateModeTip() {
+      const min = parseFloat(minInput.value);
+      const max = parseFloat(maxInput.value);
+      const decimal = Number(decInput.value) > 0;
+      modeTip.textContent = decimal
+        ? '小数位数 > 0：将生成小数，保留指定小数位数'
+        : '小数位数 = 0：将生成整数（含边界）';
+    }
+    [minInput, maxInput, decInput].forEach(x => x.addEventListener('input', updateModeTip));
+    updateModeTip();
+
+    const row1 = UI.el('div', { class: 'row' }, [
+      UI.field('最小值', minInput),
+      UI.field('最大值', maxInput)
+    ]);
+    const row2 = UI.el('div', { class: 'row' }, [
+      UI.field('生成数量', countInput),
+      UI.field('小数位数（>0 时生成小数）', decInput)
+    ]);
+    const results = UI.el('div', { class: 'rand-results', id: 'rand-results' });
+    const genBtn = UI.el('button', { class: 'btn primary', id: 'rand-generate', onclick: () => generate() }, '🎲 生成');
+
+    function generate() {
+      const min = parseFloat(minInput.value);
+      const max = parseFloat(maxInput.value);
+      const count = Number(countInput.value);
+      if (!isFinite(min) || !isFinite(max)) { UI.toast('请填写有效的最小值和最大值', 'error'); return; }
+      if (max < min) { UI.toast('最大值不能小于最小值', 'error'); return; }
+      if (!Number.isInteger(count) || count < 1 || count > 100) { UI.toast('数量需为 1–100 的整数', 'error'); return; }
+      const rawDec = Number(decInput.value);
+      const n = Number.isInteger(rawDec) ? Math.min(Math.max(rawDec, 0), 10) : 0;
+      const decimal = n > 0;
+      const out = [];
+      for (let i = 0; i < count; i++) {
+        if (min === max) { out.push(String(min)); continue; }
+        if (decimal) {
+          const v = min + Math.random() * (max - min);
+          out.push((Math.round(v * Math.pow(10, n)) / Math.pow(10, n)).toFixed(n));
+        } else {
+          out.push(String(Math.floor(Math.random() * (max - min + 1)) + min));
+        }
+      }
+      results.innerHTML = '';
+      out.forEach(v => results.appendChild(UI.el('span', { class: 'rand-result' }, v)));
+    }
+
+    card.appendChild(row1);
+    card.appendChild(row2);
+    card.appendChild(UI.el('div', {}, [genBtn, UI.el('span', { class: 'muted', style: 'margin-left:10px' }, '每次生成一组新的随机数')]));
+    card.appendChild(modeTip);
+    card.appendChild(results);
+    container.appendChild(card);
+  }
   global.Stellarium.Router.register('tools', render, '实用小工具');
 })(typeof window !== 'undefined' ? window : globalThis);

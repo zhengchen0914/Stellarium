@@ -11,6 +11,7 @@
     { id: 'pomodoro', name: '番茄钟', icon: '🍅' },
     { id: 'lottery', name: '随机抽签', icon: '🎲' },
     { id: 'dice', name: '掷骰子', icon: '🎯' },
+    { id: 'rand', name: '随机数生成器', icon: '🎰' },
     { id: 'notes', name: '备忘便签', icon: '📝' }
   ];
   const GAMES = [

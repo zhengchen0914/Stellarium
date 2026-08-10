@@ -246,3 +246,10 @@ th { color: var(--text-2); font-weight: 600; font-size: 12px; }
 .calc-btn.equals { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border: none; }
 .calc-btn.equals:hover { filter: brightness(1.1); color: #fff; }
 .calc-btn.zero { grid-column: span 2; }
+
+/* 随机数生成器 */
+.rand-results { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.rand-result {
+  padding: 8px 14px; border: 1px solid var(--border); border-radius: 20px;
+  background: var(--card-solid); font-size: 15px; font-variant-numeric: tabular-nums;
+}
