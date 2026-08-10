@@ -265,3 +265,33 @@ th { color: var(--text-2); font-weight: 600; font-size: 12px; }
   display: flex; justify-content: space-between; gap: 10px;
   padding: 6px 2px; border-bottom: 1px dashed var(--border); font-size: 13px;
 }
+
+/* 番茄钟 */
+.pomo-modes { display: flex; gap: 8px; margin-bottom: 16px; }
+.pomo-mode-btn {
+  flex: 1; padding: 8px 0; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--card-solid);
+  color: var(--text-2); cursor: pointer; font-size: 13px; transition: all 0.15s;
+}
+.pomo-mode-btn:hover { border-color: var(--accent); color: var(--text); }
+.pomo-mode-btn.active {
+  color: #fff; font-weight: 600;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+}
+.pomo-ring-wrap { position: relative; width: 220px; margin: 0 auto; }
+.pomo-ring { width: 220px; height: 220px; display: block; }
+.pomo-ring .track { fill: none; stroke: var(--bg-2); stroke-width: 10; }
+.pomo-ring .progress {
+  fill: none; stroke: var(--accent); stroke-width: 10; stroke-linecap: round;
+  transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 0.4s linear;
+}
+.pomo-time {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 42px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.pomo-controls { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+.pomo-controls .btn { min-width: 110px; padding: 10px 0; font-size: 15px; justify-content: center; }
+.pomo-count { text-align: center; margin-top: 12px; font-size: 13px; color: var(--text-2); }
+.pomo-settings { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px; }
+.pomo-settings input[type="checkbox"] { width: 18px; height: 18px; margin-top: 6px; }

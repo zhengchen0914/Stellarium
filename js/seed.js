@@ -24,7 +24,7 @@
 
   function seedData() {
     return {
-      settings: { appName: '星隅', theme: 'dark', dateFormat: 'YYYY-MM-DD', wallpaper: null, wallpaperMask: 62 },
+      settings: { appName: '星隅', theme: 'dark', dateFormat: 'YYYY-MM-DD', wallpaper: null, wallpaperMask: 62, pomodoro: { focusMin: 25, shortMin: 5, longMin: 15, longEvery: 4, sound: true } },
       categories: CATEGORIES.map((name, i) => ({ id: 'cat-' + (i + 1), name, color: CAT_COLORS[i], sort: i })),
       commonExercises: EXERCISES.map((name, i) => ({ id: 'ex-' + (i + 1), name })),
       tools: TOOLS.map(x => Object.assign({}, x)),

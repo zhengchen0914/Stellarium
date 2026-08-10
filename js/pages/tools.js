@@ -2,8 +2,10 @@
 (function (global) {
   'use strict';
   const UI = global.Stellarium.UI;
+  const U = global.Stellarium.Utils;
+  const store = () => global.Stellarium.store;
 
-  function render(container) {
+  function render(container) { pomo.ui = null;
     container.innerHTML = '';
     container.appendChild(UI.el('div', { class: 'page-head' }, [
       UI.el('h1', { class: 'page-title' }, '实用小工具'),
@@ -16,7 +18,7 @@
         dataset: { tool: t.id },
         onclick: () => openTool(container, t)
       }, [
-        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
+        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
         UI.el('div', { class: 't-ico' }, t.icon),
         UI.el('div', { class: 't-name' }, t.name)
       ]));
@@ -28,6 +30,7 @@
     if (tool.id === 'calc') { renderCalc(container); return; }
     if (tool.id === 'rand') { renderRand(container); return; }
     if (tool.id === 'convert') { renderConvert(container); return; }
+    if (tool.id === 'pomodoro') { renderPomodoro(container); return; }
     UI.toast('该工具暂未开发，敬请期待', 'info');
   }
 
@@ -335,6 +338,226 @@
     card.appendChild(refBox);
     container.appendChild(card);
     fillUnitSelects();
+  }
+  /* ============ 番茄钟 ============ */
+  const pomo = {
+    mode: 'focus',
+    running: false,
+    remaining: 0,
+    total: 0,
+    started: false,
+    timerId: null,
+    settings: null,
+    ui: null
+  };
+
+  function pomoMin(mode, settings) {
+    if (mode === 'short') return settings.shortMin;
+    if (mode === 'long') return settings.longMin;
+    return settings.focusMin;
+  }
+
+  function pomoFmt(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  function pomoBeep() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new Ctx();
+      if (ctx.state === 'suspended') ctx.resume();
+      [0, 0.25, 0.5].forEach(t => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = 880;
+        g.gain.value = 0.12;
+        o.connect(g); g.connect(ctx.destination);
+        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.15);
+      });
+    } catch (e) { /* 音频不可用则忽略 */ }
+  }
+
+  function pomoNotify(title) {
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title);
+      }
+    } catch (e) { /* 忽略 */ }
+  }
+
+  function pomoFocusCountToday() {
+    const today = U.todayStr();
+    return store().all('pomodoros').filter(p => p.date === today && p.type === 'focus').length;
+  }
+
+  async function pomoAddSession(type) {
+    await store().add('pomodoros', { date: U.todayStr(), type, minutes: pomoMin(pomo.mode, pomo.settings) });
+  }
+
+  async function pomoComplete() {
+    const s = pomo.settings || {};
+    pomo.started = false;
+    if (s.sound !== false) pomoBeep();
+    pomoNotify(pomo.mode === 'focus' ? '专注完成！' : '休息结束，开始新的专注吧');
+    await pomoAddSession(pomo.mode);
+    if (pomo.mode === 'focus') {
+      const n = pomoFocusCountToday();
+      if (s.longEvery && n % s.longEvery === 0) {
+        UI.toast('已完成 ' + n + ' 个番茄，该长休息啦', 'info');
+      } else {
+        UI.toast('专注完成！休息一下吧', 'success');
+      }
+    } else {
+      UI.toast((pomo.mode === 'short' ? '短休息' : '长休息') + '结束，开始新的专注吧', 'info');
+    }
+    pomoRenderUI();
+  }
+
+  function pomoStop() {
+    pomo.running = false;
+    if (pomo.timerId) { clearInterval(pomo.timerId); pomo.timerId = null; }
+    pomoRenderUI();
+  }
+
+  function pomoStart() {
+    if (pomo.remaining <= 0) pomo.total = pomo.remaining = Math.round(pomoMin(pomo.mode, pomo.settings) * 60);
+    pomo.started = true;
+    pomo.running = true;
+    if (pomo.timerId) clearInterval(pomo.timerId);
+    pomo.timerId = setInterval(pomoTick, 1000);
+    pomoRenderUI();
+  }
+
+  function pomoTick() {
+    if (pomo.remaining > 0) pomo.remaining -= 1;
+    if (pomo.remaining <= 0) {
+      pomo.remaining = 0;
+      pomoStop();
+      pomoComplete();
+    }
+    pomoRenderUI();
+  }
+
+  function pomoReset() {
+    pomo.started = false;
+    pomoStop();
+    pomo.total = pomo.remaining = Math.round(pomoMin(pomo.mode, pomo.settings) * 60);
+    pomoRenderUI();
+  }
+
+  function pomoSetMode(m) {
+    pomo.started = false;
+    pomoStop();
+    pomo.mode = m;
+    pomo.total = pomo.remaining = Math.round(pomoMin(m, pomo.settings) * 60);
+    pomoRenderUI();
+  }
+
+  function pomoRenderUI() {
+    const ui = pomo.ui;
+    if (!ui || !ui.root || !ui.root.isConnected) return;
+    ui.timeEl.textContent = pomoFmt(Math.max(0, pomo.remaining));
+    const frac = pomo.total > 0 ? (pomo.total - pomo.remaining) / pomo.total : 0;
+    ui.ringEl.style.strokeDashoffset = String(ui.circ * (1 - frac));
+    ui.runBtn.textContent = pomo.running ? '暂停' : (pomo.started ? '继续' : '开始');
+    ui.runBtn.className = 'btn ' + (pomo.running ? 'danger' : 'primary');
+    ui.modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === pomo.mode));
+    ui.countEl.textContent = '今日已完成 ' + pomoFocusCountToday() + ' 个番茄';
+  }
+
+  function svgEl(tag, attrs) {
+    const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [k, v] of Object.entries(attrs || {})) node.setAttribute(k, v);
+    return node;
+  }
+
+  function renderPomodoro(container) {
+    const saved = store().snapshot().settings.pomodoro || {};
+    pomo.settings = Object.assign({ focusMin: 25, shortMin: 5, longMin: 15, longEvery: 4, sound: true }, saved);
+    if (pomo.total === 0) {
+      pomo.total = pomo.remaining = Math.round(pomoMin(pomo.mode, pomo.settings) * 60);
+    }
+    container.innerHTML = '';
+    container.appendChild(UI.el('div', { class: 'page-head' }, [
+      UI.el('h1', { class: 'page-title' }, '番茄钟'),
+      UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
+    ]));
+    const card = UI.el('div', { class: 'card pomo' });
+
+    const modeBtns = ['focus', 'short', 'long'].map(m => UI.el('button', {
+      class: 'pomo-mode-btn', dataset: { mode: m }, onclick: () => pomoSetMode(m)
+    }, m === 'focus' ? '🍅 专注' : (m === 'short' ? '☕ 短休息' : '🌙 长休息')));
+    const modes = UI.el('div', { class: 'pomo-modes' });
+    modeBtns.forEach(b => modes.appendChild(b));
+
+    const circ = 2 * Math.PI * 88;
+    const ring = svgEl('svg', { class: 'pomo-ring', viewBox: '0 0 200 200' });
+    ring.appendChild(svgEl('circle', { class: 'track', cx: '100', cy: '100', r: '88' }));
+    const ringEl = svgEl('circle', { class: 'progress', cx: '100', cy: '100', r: '88' });
+    ringEl.style.strokeDasharray = String(circ);
+    ring.appendChild(ringEl);
+    const timeEl = UI.el('div', { class: 'pomo-time', id: 'pomo-time' });
+    const ringWrap = UI.el('div', { class: 'pomo-ring-wrap' });
+    ringWrap.appendChild(ring);
+    ringWrap.appendChild(timeEl);
+
+    const runBtn = UI.el('button', { class: 'btn primary', id: 'pomo-run', onclick: () => (pomo.running ? pomoStop() : pomoStart()) }, '开始');
+    const resetBtn = UI.el('button', { class: 'btn', id: 'pomo-reset', onclick: pomoReset }, '重置');
+    const controls = UI.el('div', { class: 'pomo-controls' });
+    controls.appendChild(runBtn);
+    controls.appendChild(resetBtn);
+
+    const countEl = UI.el('div', { class: 'pomo-count', id: 'pomo-count' });
+
+    /* 设置区 */
+    const focusInput = UI.numInput(pomo.settings.focusMin, { id: 'pomo-focus', min: '0.1', max: '180', step: '0.1' });
+    const shortInput = UI.numInput(pomo.settings.shortMin, { id: 'pomo-short', min: '0.1', max: '60', step: '0.1' });
+    const longInput = UI.numInput(pomo.settings.longMin, { id: 'pomo-long', min: '0.1', max: '120', step: '0.1' });
+    const everyInput = UI.numInput(pomo.settings.longEvery, { id: 'pomo-every', min: '1', max: '12', step: '1' });
+    const soundInput = UI.el('input', { type: 'checkbox', id: 'pomo-sound', checked: pomo.settings.sound ? 'checked' : null });
+    const soundWrap = UI.el('div', { class: 'field' });
+    soundWrap.appendChild(UI.el('label', {}, '完成提示音'));
+    soundWrap.appendChild(soundInput);
+    const saveBtn = UI.el('button', { class: 'btn primary sm', id: 'pomo-save', onclick: savePomoSettings }, '保存设置');
+
+    function savePomoSettings() {
+      const focusMin = U.clamp(parseFloat(focusInput.value) || 25, 0.1, 180);
+      const shortMin = U.clamp(parseFloat(shortInput.value) || 5, 0.1, 60);
+      const longMin = U.clamp(parseFloat(longInput.value) || 15, 0.1, 120);
+      const longEvery = Math.round(U.clamp(parseInt(everyInput.value, 10) || 4, 1, 12));
+      const sound = soundInput.checked;
+      Object.assign(pomo.settings, { focusMin, shortMin, longMin, longEvery, sound });
+      if (!pomo.running) pomo.total = pomo.remaining = Math.round(pomoMin(pomo.mode, pomo.settings) * 60);
+      pomoRenderUI();
+      store().setSettings({ pomodoro: pomo.settings }).then(() => UI.toast('番茄钟设置已保存', 'success'));
+    }
+
+    const settingsCard = UI.el('div', { class: 'pomo-settings' });
+    settingsCard.appendChild(UI.el('div', { class: 'group-label' }, '时长设置（分钟）'));
+    const row1 = UI.el('div', { class: 'row' }, [
+      UI.field('专注', focusInput),
+      UI.field('短休息', shortInput),
+      UI.field('长休息', longInput)
+    ]);
+    const row2 = UI.el('div', { class: 'row' }, [
+      UI.field('长休间隔（个番茄）', everyInput),
+      soundWrap
+    ]);
+    settingsCard.appendChild(row1);
+    settingsCard.appendChild(row2);
+    settingsCard.appendChild(UI.el('div', {}, saveBtn));
+
+    card.appendChild(modes);
+    card.appendChild(ringWrap);
+    card.appendChild(controls);
+    card.appendChild(countEl);
+    card.appendChild(settingsCard);
+    container.appendChild(card);
+
+    pomo.ui = { root: card, timeEl, ringEl, runBtn, modeBtns, countEl, circ };
+    pomoRenderUI();
   }
   global.Stellarium.Router.register('tools', render, '实用小工具');
 })(typeof window !== 'undefined' ? window : globalThis);

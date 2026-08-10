@@ -9,13 +9,13 @@ test('Phase7: 工具与游戏占位卡片提示未开发', async () => {
     await page.evaluate(() => window.Stellarium.Router.navigate('tools'));
     await page.waitForSelector('.tool-card');
     assert.equal(await page.locator('.tool-card').count(), 7);
-    await page.locator('.tool-card').nth(2).click();
+    await page.locator('.tool-card').nth(3).click();
     await page.waitForSelector('.toast');
     assert.ok((await page.locator('.toast').last().textContent()).includes('暂未开发'));
     await page.evaluate(() => window.Stellarium.Router.navigate('games'));
     await page.waitForSelector('.tool-card');
     assert.equal(await page.locator('.tool-card').count(), 5);
-    await page.locator('.tool-card').nth(2).click();
+    await page.locator('.tool-card').nth(3).click();
     await page.waitForSelector('.toast');
     assert.ok((await page.locator('.toast').last().textContent()).includes('暂未开发'));
     assertNoErrors(errors);
