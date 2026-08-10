@@ -15,3 +15,6 @@ Desktop.ini
 # temp diagnostic scripts
 **/_diag*.mjs
 **/_repro*.mjs
+
+# 本地测试图片
+1.png
