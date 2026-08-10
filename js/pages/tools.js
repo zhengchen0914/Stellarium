@@ -5,7 +5,7 @@
   const U = global.Stellarium.Utils;
   const store = () => global.Stellarium.store;
 
-  function render(container) { pomo.ui = null; if (lottery.animId) { clearInterval(lottery.animId); lottery.animId = null; } lottery.ui = null;
+  function render(container) { pomo.ui = null; if (lottery.animId) { clearInterval(lottery.animId); lottery.animId = null; } lottery.ui = null; if (dice.animId) { clearInterval(dice.animId); dice.animId = null; } dice.ui = null;
     container.innerHTML = '';
     container.appendChild(UI.el('div', { class: 'page-head' }, [
       UI.el('h1', { class: 'page-title' }, '实用小工具'),
@@ -18,7 +18,7 @@
         dataset: { tool: t.id },
         onclick: () => openTool(container, t)
       }, [
-        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
+        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
         UI.el('div', { class: 't-ico' }, t.icon),
         UI.el('div', { class: 't-name' }, t.name)
       ]));
@@ -32,6 +32,7 @@
     if (tool.id === 'convert') { renderConvert(container); return; }
     if (tool.id === 'pomodoro') { renderPomodoro(container); return; }
     if (tool.id === 'lottery') { renderLottery(container); return; }
+    if (tool.id === 'dice') { renderDice(container); return; }
     UI.toast('该工具暂未开发，敬请期待', 'info');
   }
 
@@ -575,7 +576,7 @@
     animId: null
   };
 
-  function lotteryNowStr() {
+  function nowClockStr() {
     const d = new Date();
     const p = n => String(n).padStart(2, '0');
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
@@ -735,13 +736,186 @@
           lottery.animId = null;
           showResults(final, false);
           drawBtn.disabled = false;
-          const rec = { time: lotteryNowStr(), count, allowRepeat, results: final.slice() };
+          const rec = { time: nowClockStr(), count, allowRepeat, results: final.slice() };
           store().add('lotteryHistory', rec).then(() => {
             lottery.history.unshift(rec);
             renderHistory();
           });
         }
       }, 130);
+    }
+
+    renderHistory();
+  }
+  /* ============ 掷骰子 ============ */
+  const DICE_TYPES = [
+    { id: 'd4', faces: 4 }, { id: 'd6', faces: 6 }, { id: 'd8', faces: 8 },
+    { id: 'd10', faces: 10 }, { id: 'd12', faces: 12 }, { id: 'd20', faces: 20 }, { id: 'd100', faces: 100 }
+  ];
+  const DICE_PIPS = {
+    1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8]
+  };
+
+  const dice = {
+    type: 6,
+    count: 1,
+    history: [],
+    ui: null,
+    animId: null
+  };
+
+  function diceRoll(faces, n) {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push(1 + Math.floor(Math.random() * faces));
+    return out;
+  }
+
+  function renderDice(container) {
+    const saved = store().snapshot().settings.dice || {};
+    dice.type = parseInt(saved.type, 10) || 6;
+    dice.count = U.clamp(parseInt(saved.count, 10) || 1, 1, 10);
+    dice.history = store().all('diceHistory').slice().reverse();
+    dice.animId = null;
+
+    container.innerHTML = '';
+    container.appendChild(UI.el('div', { class: 'page-head' }, [
+      UI.el('h1', { class: 'page-title' }, '掷骰子'),
+      UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
+    ]));
+
+    const card = UI.el('div', { class: 'card dice' });
+    card.appendChild(UI.el('div', { class: 'group-label' }, '骰子类型'));
+    const typeBar = UI.el('div', { class: 'dice-type-bar', id: 'dice-types' });
+    const typeBtns = DICE_TYPES.map(t => UI.el('button', {
+      class: 'btn sm dice-type-btn' + (t.faces === dice.type ? ' active' : ''),
+      dataset: { faces: String(t.faces) },
+      onclick: () => {
+        dice.type = t.faces;
+        saveSettings();
+        typeBtns.forEach(b => b.classList.toggle('active', Number(b.dataset.faces) === dice.type));
+      }
+    }, t.id));
+    typeBtns.forEach(b => typeBar.appendChild(b));
+    card.appendChild(typeBar);
+
+    const countInput = UI.numInput(dice.count, { id: 'dice-count', min: '1', max: '10', step: '1' });
+    countInput.addEventListener('change', () => {
+      dice.count = Math.round(U.clamp(parseInt(countInput.value, 10) || 1, 1, 10));
+      countInput.value = String(dice.count);
+      saveSettings();
+    });
+    card.appendChild(UI.el('div', { class: 'dice-count-row' }, [
+      UI.field('投掷数量', countInput),
+      UI.el('span', { class: 'muted', style: 'align-self:center' }, '1–10 个')
+    ]));
+
+    const tray = UI.el('div', { class: 'dice-tray', id: 'dice-results' });
+    const summary = UI.el('div', { class: 'dice-summary', id: 'dice-summary' });
+    const rollBtn = UI.el('button', { class: 'btn primary lg', id: 'dice-roll', onclick: () => roll() }, '🎲 掷骰子');
+    card.appendChild(tray);
+    card.appendChild(summary);
+    card.appendChild(UI.el('div', { style: 'text-align:center' }, rollBtn));
+    container.appendChild(card);
+
+    const histCard = UI.el('div', { class: 'card dice-history' });
+    const histList = UI.el('div', { id: 'dice-history-list' });
+    histCard.appendChild(UI.el('div', { class: 'dice-hist-head' }, [
+      UI.el('div', { class: 'group-label' }, '历史记录'),
+      UI.el('button', { class: 'btn sm', id: 'dice-hist-clear', onclick: () => clearHistory() }, '清空历史')
+    ]));
+    histCard.appendChild(histList);
+    container.appendChild(histCard);
+
+    dice.ui = { tray, summary, rollBtn, countInput, histList };
+
+    function saveSettings() {
+      return store().setSettings({ dice: { type: dice.type, count: dice.count } });
+    }
+
+    function renderHistory() {
+      const ui = dice.ui;
+      if (!ui || !ui.histList.isConnected) return;
+      ui.histList.innerHTML = '';
+      if (!dice.history.length) {
+        ui.histList.appendChild(UI.el('div', { class: 'muted', style: 'padding:8px 0' }, '暂无投掷记录'));
+        return;
+      }
+      dice.history.slice(0, 20).forEach(h => {
+        const chips = h.results.map(v => UI.el('span', { class: 'dice-chip' }, String(v)));
+        ui.histList.appendChild(UI.el('div', { class: 'dice-hist-row' }, [
+          UI.el('div', { class: 'dice-hist-time' }, h.time || ''),
+          UI.el('div', { class: 'dice-hist-results' }, [
+            UI.el('span', { class: 'muted' }, h.type + '×' + h.count + '  '),
+            ...chips,
+            h.count > 1 ? UI.el('span', { class: 'dice-hist-total' }, '合计 ' + h.total) : null
+          ])
+        ]));
+      });
+    }
+
+    function clearHistory() {
+      const items = store().all('diceHistory').slice();
+      if (!items.length) { UI.toast('暂无历史记录', 'info'); return; }
+      Promise.all(items.map(it => store().remove('diceHistory', it.id))).then(() => {
+        dice.history = [];
+        renderHistory();
+        UI.toast('历史记录已清空', 'success');
+      });
+    }
+
+    function dieFace(value, rolling) {
+      const face = UI.el('div', { class: 'dice-face' + (rolling ? ' rolling' : '') });
+      if (dice.type === 6 && value >= 1 && value <= 6) {
+        const grid = UI.el('div', { class: 'dice-pips' });
+        for (let i = 0; i < 9; i++) {
+          const pip = (DICE_PIPS[value] || []).includes(i);
+          grid.appendChild(pip ? UI.el('span', { class: 'pip' }) : UI.el('span', {}));
+        }
+        face.appendChild(grid);
+      } else {
+        face.appendChild(UI.el('span', { class: 'dice-num' }, String(value)));
+      }
+      return face;
+    }
+
+    function showResults(values, rolling) {
+      const ui = dice.ui;
+      if (!ui || !ui.tray.isConnected) return;
+      ui.tray.innerHTML = '';
+      values.forEach(v => ui.tray.appendChild(dieFace(v, rolling)));
+      ui.summary.innerHTML = '';
+      if (values.length > 1) {
+        const total = values.reduce((a, b) => a + b, 0);
+        ui.summary.appendChild(UI.el('span', {}, '总和 ' + total + ' · 最大 ' + Math.max(...values) + ' · 最小 ' + Math.min(...values)));
+      }
+    }
+
+    function roll() {
+      const count = Math.round(U.clamp(parseInt(countInput.value, 10) || 1, 1, 10));
+      dice.count = count;
+      countInput.value = String(count);
+      saveSettings();
+      const final = diceRoll(dice.type, count);
+      rollBtn.disabled = true;
+      let tick = 0;
+      dice.animId = setInterval(() => {
+        tick++;
+        showResults(diceRoll(dice.type, count), true);
+        if (tick >= 10) {
+          clearInterval(dice.animId);
+          dice.animId = null;
+          showResults(final, false);
+          rollBtn.disabled = false;
+          const rec = {
+            time: nowClockStr(), type: 'd' + dice.type, count,
+            results: final.slice(), total: final.reduce((a, b) => a + b, 0)
+          };
+          store().add('diceHistory', rec).then(() => {
+            dice.history.unshift(rec);
+            renderHistory();
+          });
+        }
+      }, 120);
     }
 
     renderHistory();
