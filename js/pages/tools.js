@@ -18,7 +18,7 @@
         dataset: { tool: t.id },
         onclick: () => openTool(container, t)
       }, [
-        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
+        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice' || t.id === 'notes') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
         UI.el('div', { class: 't-ico' }, t.icon),
         UI.el('div', { class: 't-name' }, t.name)
       ]));
@@ -33,6 +33,7 @@
     if (tool.id === 'pomodoro') { renderPomodoro(container); return; }
     if (tool.id === 'lottery') { renderLottery(container); return; }
     if (tool.id === 'dice') { renderDice(container); return; }
+    if (tool.id === 'notes') { renderNotes(container); return; }
     UI.toast('该工具暂未开发，敬请期待', 'info');
   }
 
@@ -919,6 +920,133 @@
     }
 
     renderHistory();
+  }
+  /* ============ 备忘便签 ============ */
+  const NOTE_COLORS = ['yellow', 'blue', 'green', 'pink'];
+
+  function renderNotes(container) {
+    container.innerHTML = '';
+    container.appendChild(UI.el('div', { class: 'page-head' }, [
+      UI.el('h1', { class: 'page-title' }, '备忘便签'),
+      UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
+    ]));
+
+    const card = UI.el('div', { class: 'card notes-panel' });
+    const searchInput = UI.textInput('', { id: 'notes-search', placeholder: '搜索标题或内容…' });
+    const newBtn = UI.el('button', { class: 'btn primary sm', id: 'notes-new', onclick: () => openNoteModal(null) }, '＋ 新建便签');
+    const toolbar = UI.el('div', { class: 'notes-toolbar' }, [searchInput, newBtn]);
+    const statsEl = UI.el('div', { class: 'notes-stats', id: 'notes-stats' });
+    const list = UI.el('div', { class: 'notes-list', id: 'notes-list' });
+    card.appendChild(toolbar);
+    card.appendChild(statsEl);
+    card.appendChild(list);
+    container.appendChild(card);
+
+    let filter = '';
+    searchInput.addEventListener('input', () => { filter = searchInput.value.trim().toLowerCase(); renderList(); });
+
+    function allNotes() {
+      return store().all('notes').slice().sort((a, b) => {
+        if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      });
+    }
+
+    function renderList() {
+      const kw = filter;
+      const items = allNotes().filter(n => {
+        if (!kw) return true;
+        return ((n.title || '') + ' ' + (n.content || '')).toLowerCase().includes(kw);
+      });
+      list.innerHTML = '';
+      const total = store().all('notes').length;
+      const pinned = store().all('notes').filter(n => n.pinned).length;
+      statsEl.textContent = total ? '共 ' + total + ' 条 · 置顶 ' + pinned + ' 条' : '';
+      if (!items.length) {
+        list.appendChild(UI.emptyState('📝', total ? '没有匹配的便签' : '还没有便签，点击右上角新建', total ? null : '新建便签', total ? null : () => openNoteModal(null)));
+        return;
+      }
+      items.forEach(n => list.appendChild(noteCard(n)));
+    }
+
+    function noteTimeStr(ts) {
+      const d = new Date(ts);
+      const p = n => String(n).padStart(2, '0');
+      return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+
+    function noteCard(n) {
+      const card = UI.el('div', {
+        class: 'note-card ' + (n.color || 'yellow') + (n.pinned ? ' pinned' : ''),
+        onclick: () => openNoteModal(n)
+      });
+      card.appendChild(UI.el('div', { class: 'note-head' }, [
+        UI.el('span', { class: 'note-title' }, n.title || '无标题'),
+        UI.el('span', { class: 'note-time' }, (n.updatedAt || n.createdAt) ? noteTimeStr(n.updatedAt || n.createdAt) : '')
+      ]));
+      card.appendChild(UI.el('div', { class: 'note-content' }, n.content || ''));
+      card.appendChild(UI.el('div', { class: 'note-actions' }, [
+        UI.el('button', { class: 'note-act', dataset: { action: 'pin' }, title: n.pinned ? '取消置顶' : '置顶', onclick: (e) => { e.stopPropagation(); togglePin(n); } }, n.pinned ? '📌' : '📍'),
+        UI.el('button', { class: 'note-act', dataset: { action: 'edit' }, title: '编辑', onclick: (e) => { e.stopPropagation(); openNoteModal(n); } }, '✏️'),
+        UI.el('button', { class: 'note-act', dataset: { action: 'del' }, title: '删除', onclick: (e) => { e.stopPropagation(); removeNote(n); } }, '🗑')
+      ]));
+      return card;
+    }
+
+    function togglePin(n) {
+      store().update('notes', n.id, { pinned: !n.pinned }).then(() => renderList());
+    }
+
+    function removeNote(n) {
+      UI.confirmDialog({ title: '删除便签', message: '确定删除「' + (n.title || '无标题') + '」吗？删除后无法恢复。' }).then(ok => {
+        if (!ok) return;
+        store().remove('notes', n.id).then(() => { renderList(); UI.toast('便签已删除', 'success'); });
+      });
+    }
+
+    function openNoteModal(n) {
+      const titleInput = UI.textInput(n ? n.title : '', { id: 'note-title', placeholder: '便签标题（可选）' });
+      const contentInput = UI.el('textarea', { id: 'note-content', rows: '5', placeholder: '写下内容…' });
+      contentInput.value = n ? (n.content || '') : '';
+      let currentColor = n ? (n.color || 'yellow') : 'yellow';
+      const colorBar = UI.el('div', { class: 'note-color-bar' });
+      const colorBtns = NOTE_COLORS.map(c => UI.el('button', {
+        class: 'note-color-dot ' + c + (currentColor === c ? ' active' : ''),
+        dataset: { color: c },
+        onclick: () => { currentColor = c; colorBtns.forEach(b => b.classList.toggle('active', b.dataset.color === c)); }
+      }, ''));
+      colorBtns.forEach(b => colorBar.appendChild(b));
+
+      const body = UI.el('div', { class: 'note-form' });
+      body.appendChild(UI.field('标题', titleInput));
+      body.appendChild(UI.field('内容', contentInput));
+      body.appendChild(UI.el('div', { class: 'note-color-row' }, [
+        UI.el('label', {}, '颜色'),
+        colorBar
+      ]));
+      const saveBtn = UI.el('button', { class: 'btn primary', id: 'note-save', onclick: () => save() }, '保存');
+      const cancelBtn = UI.el('button', { class: 'btn', onclick: () => dlg.close() }, '取消');
+      body.appendChild(UI.el('div', { class: 'row', style: 'margin-top:14px' }, [saveBtn, cancelBtn]));
+
+      const dlg = UI.modal(n ? '编辑便签' : '新建便签', body);
+      const now = Date.now();
+      function save() {
+        const title = titleInput.value.trim();
+        const content = contentInput.value.trim();
+        if (!title && !content) { UI.toast('标题和内容至少填写一项', 'error'); return; }
+        if (n) {
+          store().update('notes', n.id, { title, content, color: currentColor, updatedAt: now }).then(() => {
+            dlg.close(); renderList(); UI.toast('便签已更新', 'success');
+          });
+        } else {
+          store().add('notes', { title, content, color: currentColor, pinned: false, createdAt: now, updatedAt: now }).then(() => {
+            dlg.close(); renderList(); UI.toast('便签已保存', 'success');
+          });
+        }
+      }
+    }
+
+    renderList();
   }
   global.Stellarium.Router.register('tools', render, '实用小工具');
 })(typeof window !== 'undefined' ? window : globalThis);

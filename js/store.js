@@ -7,7 +7,7 @@
     'ideas', 'drafts', 'accounts', 'schedules',
     'projects', 'projectTasks', 'learnings', 'problems',
     'weeklyPlans', 'workouts', 'commonExercises', 'bodyMetrics',
-    'meals', 'dietTemplates', 'pomodoros', 'lotteryHistory', 'diceHistory'
+    'meals', 'dietTemplates', 'pomodoros', 'lotteryHistory', 'diceHistory', 'notes'
   ];
 
   function createStore(storage) {

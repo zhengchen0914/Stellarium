@@ -3,15 +3,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openApp, assertNoErrors } from './helpers.mjs';
 
-test('Phase7: 工具与游戏占位卡片提示未开发', async () => {
+test('Phase7: 工具全部上线且游戏占位卡片提示未开发', async () => {
   const { browser, page, errors } = await openApp();
   try {
     await page.evaluate(() => window.Stellarium.Router.navigate('tools'));
     await page.waitForSelector('.tool-card');
     assert.equal(await page.locator('.tool-card').count(), 7);
-    await page.locator('.tool-card').nth(6).click();
-    await page.waitForSelector('.toast');
-    assert.ok((await page.locator('.toast').last().textContent()).includes('暂未开发'));
+    assert.equal(await page.locator('.tool-card .soon').count(), 0, '全部工具均已上线');
     await page.evaluate(() => window.Stellarium.Router.navigate('games'));
     await page.waitForSelector('.tool-card');
     assert.equal(await page.locator('.tool-card').count(), 5);
