@@ -86,3 +86,38 @@ test('Phase8: 全部 10 个页面遍历无报错', async () => {
     assertNoErrors(errors);
   } finally { await browser.close(); }
 });
+
+
+test('Phase8: 首页与各模块新增数据联动（含停留首页自动刷新）', async () => {
+  const { browser, page, errors } = await openApp();
+  try {
+    // 1) 仅记账（不写手账正文）→ 回首页手账卡显示「今日已记账」
+    await page.evaluate(() => window.Stellarium.Router.navigate('journal'));
+    await page.getByRole('button', { name: '记一笔' }).click();
+    await page.locator('.modal input[type="number"]').fill('30');
+    await page.getByRole('button', { name: '保存', exact: true }).click();
+    await page.waitForFunction(() => window.Stellarium.store.all('bills').length === 1);
+    await page.evaluate(() => window.Stellarium.Router.navigate('home'));
+    await page.waitForFunction(() => document.querySelectorAll('.sum-card')[0].textContent.includes('今日已记账'));
+    assert.ok((await page.locator('.sum-card').first().textContent()).includes('今日支出 ¥30.00'));
+
+    // 2) 停留在首页，不导航，直接新增数据 → 订阅机制自动刷新摘要
+    await page.evaluate(async () => {
+      await window.Stellarium.store.add('ideas', { content: '新灵感', status: '待用' });
+      await window.Stellarium.store.add('drafts', { title: '写作中的稿子', status: '写作中' });
+      await window.Stellarium.store.add('workouts', { date: window.Stellarium.Utils.todayStr(), exercise: '跑步' });
+      await window.Stellarium.store.add('meals', { date: window.Stellarium.Utils.todayStr(), meal: '早餐', content: '蛋', calories: 200 });
+    });
+    await page.waitForFunction(() => {
+      const t = [...document.querySelectorAll('.sum-card')].map(c => c.textContent);
+      return t[2].includes('灵感 1 条 · 草稿 1 篇')
+        && t[3].includes('今日已训练')
+        && t[4].includes('今日已记录')
+        && t[4].includes('200 kcal');
+    });
+
+    // 3) 手账卡保持「今日已记账」（有账单但无手账正文）
+    assert.ok((await page.locator('.sum-card').first().textContent()).includes('今日已记账'));
+    assertNoErrors(errors);
+  } finally { await browser.close(); }
+});

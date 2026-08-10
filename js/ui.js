@@ -55,6 +55,7 @@
       modal.appendChild(actions);
       const overlay = openOverlay(modal);
       function done(v) { overlay.remove(); resolve(v); }
+      overlay.addEventListener('mousedown', e => { if (e.target === overlay) done(false); });
       cancelBtn.addEventListener('click', () => done(false));
       okBtn.addEventListener('click', () => done(true));
     });

@@ -62,27 +62,48 @@ test('calc: calendarMarks 月历打点', () => {
   assert.equal(marks['2026-08-03'], undefined);
 });
 
-test('calc: homeSummaries 首页摘要', () => {
+test('calc: homeSummaries 首页摘要（含联动字段）', () => {
   const data = {
     tasks: [{ id: 't1', date: '2026-08-10', done: false }],
     journalEntries: [{ date: '2026-08-10' }],
-    bills: [{ date: '2026-08-01', type: '支出', amount: 300 }],
+    bills: [
+      { date: '2026-08-01', type: '支出', amount: 300 },
+      { date: '2026-08-10', type: '支出', amount: 50 },
+      { date: '2026-08-10', type: '收入', amount: 100 }
+    ],
     budgets: [{ month: '2026-08', amount: 1000 }],
-    drafts: [{ status: '待发布' }, { status: '已发布' }],
+    ideas: [{ id: 'i1', status: '待用' }, { id: 'i2', status: '已采用' }],
+    drafts: [{ status: '待发布' }, { status: '写作中' }, { status: '已发布' }],
+    projects: [{ id: 'p1' }],
     projectTasks: [{ status: '进行中' }, { status: '进行中' }, { status: '已完成' }],
-    workouts: [{ date: '2026-08-10' }],
-    meals: [],
+    workouts: [{ date: '2026-08-10' }, { date: '2026-08-03' }],
+    meals: [{ date: '2026-08-10', calories: 300 }, { date: '2026-08-10', calories: 500 }],
     bodyMetrics: [{ date: '2026-08-01', weight: 70 }]
   };
   const s = Calc.homeSummaries(data, '2026-08-10');
-  assert.equal(s.journalDone, true);
-  assert.equal(s.budget.remaining, 700);
+  assert.equal(s.hasJournal, true);
+  assert.equal(s.journalLabel, '今日已写');
+  assert.equal(s.billSpentToday, 50);
+  assert.equal(s.billIncomeToday, 100);
+  assert.equal(s.budget.remaining, 650);
   assert.equal(s.pendingDrafts, 1);
+  assert.equal(s.mediaIdeas, 2);
+  assert.equal(s.mediaDrafts, 3);
   assert.equal(s.activeTasks, 2);
+  assert.equal(s.projectCount, 1);
   assert.equal(s.trainedToday, true);
-  assert.equal(s.dietLoggedToday, false);
+  assert.equal(s.monthWorkouts, 2);
+  assert.equal(s.dietLoggedToday, true);
+  assert.equal(s.todayCalories, 800);
   assert.equal(s.lastWeight, 70);
   assert.equal(s.tasksToday.length, 1);
+});
+
+test('calc: homeSummaries 手账状态区分（记账也算已记录）', () => {
+  const base = { bills: [], journalEntries: [], tasks: [], drafts: [], projectTasks: [], workouts: [], meals: [], bodyMetrics: [], ideas: [], projects: [], budgets: [] };
+  assert.equal(Calc.homeSummaries(base, '2026-08-10').journalLabel, '今日未写');
+  assert.equal(Calc.homeSummaries({ ...base, bills: [{ date: '2026-08-10', type: '支出', amount: 30 }] }, '2026-08-10').journalLabel, '今日已记账');
+  assert.equal(Calc.homeSummaries({ ...base, journalEntries: [{ date: '2026-08-10' }] }, '2026-08-10').journalLabel, '今日已写');
 });
 
 test('calc: draftCalendar 发布日历', () => {

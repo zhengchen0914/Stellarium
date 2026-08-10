@@ -181,7 +181,7 @@
     clearRow.appendChild(clearBtn);
     card.appendChild(clearRow);
     card.appendChild(UI.el('div', { style: 'margin-top:16px;border-top:1px solid var(--border);padding-top:12px' }, [
-      UI.el('div', { class: 'muted' }, '星隅（Stellarium）v0.1 · 仅供个人本地使用'),
+      UI.el('div', { class: 'muted' }, '星隅（Stellarium）v0.2 · 仅供个人本地使用'),
       UI.el('div', { class: 'muted', style: 'margin-top:4px' }, '全部数据保存在当前电脑浏览器中，无任何联网请求。')
     ]));
     container.appendChild(card);

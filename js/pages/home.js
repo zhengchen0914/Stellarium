@@ -16,7 +16,10 @@
     return '晚上好';
   }
 
+  let unsub = null;
+
   function render(container) {
+    if (unsub) { unsub(); unsub = null; }
     const snap = store().snapshot();
     const s = Calc.homeSummaries(snap, U.todayStr());
     container.innerHTML = '';
@@ -48,13 +51,27 @@
     /* 摘要网格 */
     container.appendChild(UI.el('div', { class: 'card-title', style: 'margin:20px 0 12px' }, '各模块摘要'));
     const grid = UI.el('div', { class: 'summary-grid' });
-    grid.appendChild(sumCard('📓', '每日手账', s.journalDone ? '今日已写' : '今日未写', '预算剩余 ¥' + U.money(s.budget.remaining), 'journal'));
-    grid.appendChild(sumCard('💻', '开发工作', s.activeTasks + ' 个进行中', '项目任务', 'dev'));
-    grid.appendChild(sumCard('📢', '自媒体', s.pendingDrafts + ' 篇待发布', '内容创作', 'media'));
-    grid.appendChild(sumCard('🏋', '健身计划', s.trainedToday ? '今日已训练' : '今日未训练', '训练打卡', 'fitness'));
-    grid.appendChild(sumCard('🍱', '饮食计划', s.dietLoggedToday ? '今日已记录' : '今日未记录', '饮食打卡', 'diet'));
+    const journalSub = s.billSpentToday > 0
+      ? '今日支出 ¥' + U.money(s.billSpentToday) + ' · 预算剩余 ¥' + U.money(s.budget.remaining)
+      : '预算剩余 ¥' + U.money(s.budget.remaining);
+    const mediaSub = (s.mediaIdeas || s.mediaDrafts)
+      ? '灵感 ' + s.mediaIdeas + ' 条 · 草稿 ' + s.mediaDrafts + ' 篇'
+      : '内容创作';
+    grid.appendChild(sumCard('📓', '每日手账', s.journalLabel, journalSub, 'journal'));
+    grid.appendChild(sumCard('💻', '开发工作', s.activeTasks + ' 个进行中', '项目 ' + s.projectCount + ' 个', 'dev'));
+    grid.appendChild(sumCard('📢', '自媒体', s.pendingDrafts + ' 篇待发布', mediaSub, 'media'));
+    grid.appendChild(sumCard('🏋', '健身计划', s.trainedToday ? '今日已训练' : '今日未训练', '本月训练 ' + s.monthWorkouts + ' 次', 'fitness'));
+    grid.appendChild(sumCard('🍱', '饮食计划', s.dietLoggedToday ? '今日已记录' : '今日未记录', s.todayCalories ? '今日 ' + s.todayCalories + ' kcal' : '饮食打卡', 'diet'));
     grid.appendChild(sumCard('⚖', '身体数据', s.lastWeight != null ? s.lastWeight + ' kg' : '暂无记录', '最近体重', 'fitness'));
     container.appendChild(grid);
+
+    /* 订阅数据变更：停留在首页时也自动刷新摘要 */
+    unsub = store().subscribe(() => {
+      if (global.Stellarium.Router.currentName() === 'home') {
+        const c = document.getElementById('main-content');
+        if (c && c.querySelector('.summary-grid')) render(c);
+      }
+    });
   }
 
   function sumCard(icon, title, value, sub, route) {
@@ -94,13 +111,6 @@
 
   async function toggleHomeTask(t) {
     await store().update('tasks', t.id, { done: !t.done });
-    const snap = store().snapshot();
-    const s = Calc.homeSummaries(snap, U.todayStr());
-    const card = document.querySelector('#main-content .card .card-title');
-    if (card) {
-      const taskBox = card.parentElement.querySelector('div:last-child');
-      if (taskBox) renderTasks(taskBox, s.tasksToday);
-    }
   }
 
   function renderMemos(box) {
@@ -122,7 +132,7 @@
       body.appendChild(UI.el('div', { class: 'title' }, m.content));
       body.appendChild(UI.el('div', { class: 'sub' }, (m.createdAt || '').slice(0, 10)));
       row.appendChild(body);
-      row.appendChild(UI.el('button', { class: 'btn sm ghost', onclick: () => delMemo(m, box) }, '删除'));
+      row.appendChild(UI.el('button', { class: 'btn sm ghost', onclick: () => delMemo(m) }, '删除'));
       box.appendChild(row);
     });
   }
@@ -131,16 +141,13 @@
     const content = input.value.trim();
     if (!content) return;
     await store().add('memos', { content, createdAt: new Date().toISOString() });
-    input.value = '';
-    renderMemos(box);
     UI.toast('备忘已保存', 'success');
   }
 
-  async function delMemo(m, box) {
+  async function delMemo(m) {
     const ok = await UI.confirmDialog({ title: '删除备忘', message: '删除这条备忘？' });
     if (!ok) return;
     await store().remove('memos', m.id);
-    renderMemos(box);
   }
 
   global.Stellarium.Router.register('home', render, '首页总览');

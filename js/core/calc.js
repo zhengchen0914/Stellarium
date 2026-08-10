@@ -79,16 +79,30 @@
     const dateKey = date || U.todayStr();
     const month = U.monthKey(dateKey);
     const tasksToday = (data.tasks || []).filter(t => t.date === dateKey);
-    const journalDone = (data.journalEntries || []).some(j => j.date === dateKey);
+    const hasJournal = (data.journalEntries || []).some(j => j.date === dateKey);
+    const billsToday = (data.bills || []).filter(b => b.date === dateKey);
+    const billSpentToday = billsToday.reduce((s, b) => s + (b.type === '支出' ? (Number(b.amount) || 0) : 0), 0);
+    const billIncomeToday = billsToday.reduce((s, b) => s + (b.type === '收入' ? (Number(b.amount) || 0) : 0), 0);
     const budgetEntry = (data.budgets || []).find(b => b.month === month);
     const budget = budgetSummary(data.bills, budgetEntry ? budgetEntry.amount : 0, month);
     const pendingDrafts = (data.drafts || []).filter(d => d.status === '待发布').length;
+    const mediaIdeas = (data.ideas || []).length;
+    const mediaDrafts = (data.drafts || []).length;
     const activeTasks = (data.projectTasks || []).filter(t => t.status === '进行中').length;
+    const projectCount = (data.projects || []).length;
     const trainedToday = (data.workouts || []).some(w => w.date === dateKey);
-    const dietLoggedToday = (data.meals || []).some(m => m.date === dateKey);
+    const monthWorkouts = (data.workouts || []).filter(w => U.monthKey(w.date) === month).length;
+    const mealsToday = (data.meals || []).filter(m => m.date === dateKey);
+    const dietLoggedToday = mealsToday.length > 0;
+    const todayCalories = mealsToday.reduce((s, m) => s + (Number(m.calories) || 0), 0);
     const metrics = (data.bodyMetrics || []).slice().sort((a, b) => a.date.localeCompare(b.date));
     const lastWeight = metrics.length ? Number(metrics[metrics.length - 1].weight) : null;
-    return { dateKey, month, tasksToday, journalDone, budget, pendingDrafts, activeTasks, trainedToday, dietLoggedToday, lastWeight };
+    const journalLabel = hasJournal ? '今日已写' : (billsToday.length ? '今日已记账' : '今日未写');
+    return {
+      dateKey, month, tasksToday, hasJournal, billsToday, billSpentToday, billIncomeToday,
+      budget, pendingDrafts, mediaIdeas, mediaDrafts, activeTasks, projectCount,
+      trainedToday, monthWorkouts, dietLoggedToday, mealsToday, todayCalories, lastWeight, journalLabel
+    };
   }
 
   function draftCalendar(drafts, schedules) {

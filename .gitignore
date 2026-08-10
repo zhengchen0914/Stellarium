@@ -12,3 +12,6 @@ Desktop.ini
 # 编辑器
 .vscode/
 .idea/
+# temp diagnostic scripts
+**/_diag*.mjs
+**/_repro*.mjs

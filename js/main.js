@@ -39,7 +39,7 @@
         onclick: () => global.Stellarium.Router.navigate(n.id)
       }, [UI.el('span', { class: 'ico' }, n.icon), UI.el('span', { class: 'txt' }, n.label)]));
     });
-    sidebar.appendChild(UI.el('div', { class: 'version' }, 'v0.1'));
+    sidebar.appendChild(UI.el('div', { class: 'version' }, 'v0.2'));
   }
 
   function applyTheme() {
