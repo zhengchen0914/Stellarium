@@ -5,7 +5,7 @@
   const U = global.Stellarium.Utils;
   const store = () => global.Stellarium.store;
 
-  function render(container) { pomo.ui = null;
+  function render(container) { pomo.ui = null; if (lottery.animId) { clearInterval(lottery.animId); lottery.animId = null; } lottery.ui = null;
     container.innerHTML = '';
     container.appendChild(UI.el('div', { class: 'page-head' }, [
       UI.el('h1', { class: 'page-title' }, '实用小工具'),
@@ -18,7 +18,7 @@
         dataset: { tool: t.id },
         onclick: () => openTool(container, t)
       }, [
-        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
+        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
         UI.el('div', { class: 't-ico' }, t.icon),
         UI.el('div', { class: 't-name' }, t.name)
       ]));
@@ -31,6 +31,7 @@
     if (tool.id === 'rand') { renderRand(container); return; }
     if (tool.id === 'convert') { renderConvert(container); return; }
     if (tool.id === 'pomodoro') { renderPomodoro(container); return; }
+    if (tool.id === 'lottery') { renderLottery(container); return; }
     UI.toast('该工具暂未开发，敬请期待', 'info');
   }
 
@@ -558,6 +559,192 @@
 
     pomo.ui = { root: card, timeEl, ringEl, runBtn, modeBtns, countEl, circ };
     pomoRenderUI();
+  }
+  /* ============ 随机抽签 ============ */
+  const lotteryPresets = {
+    food: ['米饭套餐', '面条', '饺子', '火锅', '烧烤', '汉堡', '沙拉', '炒饭', '麻辣烫', '披萨'],
+    weekend: ['公园', '电影院', '博物馆', '爬山', '逛街', '宅家', '露营', '图书馆', '游乐园']
+  };
+
+  const lottery = {
+    options: [],
+    count: 1,
+    allowRepeat: false,
+    history: [],
+    ui: null,
+    animId: null
+  };
+
+  function lotteryNowStr() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function lotteryPick(count, allowRepeat) {
+    const pool = lottery.options.slice();
+    const out = [];
+    for (let i = 0; i < count && pool.length > 0; i++) {
+      const idx = Math.floor(Math.random() * pool.length);
+      out.push(pool[idx]);
+      if (!allowRepeat) pool.splice(idx, 1);
+    }
+    return out;
+  }
+
+  function renderLottery(container) {
+    const saved = store().snapshot().settings.lottery || {};
+    lottery.options = Array.isArray(saved.options) ? saved.options.slice() : [];
+    lottery.count = U.clamp(parseInt(saved.count, 10) || 1, 1, 20);
+    lottery.allowRepeat = !!saved.allowRepeat;
+    lottery.history = store().all('lotteryHistory').slice().reverse();
+    lottery.animId = null;
+
+    container.innerHTML = '';
+    container.appendChild(UI.el('div', { class: 'page-head' }, [
+      UI.el('h1', { class: 'page-title' }, '随机抽签'),
+      UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
+    ]));
+
+    /* 选项管理 */
+    const optsCard = UI.el('div', { class: 'card lottery-options' });
+    optsCard.appendChild(UI.el('div', { class: 'group-label' }, '抽签选项（每行一个）'));
+    const optsArea = UI.el('textarea', { id: 'lottery-options', rows: '5', placeholder: '例如：火锅\n烧烤\n面条' });
+    optsArea.value = lottery.options.join('\n');
+    optsCard.appendChild(optsArea);
+
+    const presetBar = UI.el('div', { class: 'lottery-presets' });
+    presetBar.appendChild(UI.el('button', { class: 'btn sm', onclick: () => { optsArea.value = lotteryPresets.food.join('\n'); } }, '🍜 今天吃什么'));
+    presetBar.appendChild(UI.el('button', { class: 'btn sm', onclick: () => { optsArea.value = lotteryPresets.weekend.join('\n'); } }, '🎒 周末去哪玩'));
+    presetBar.appendChild(UI.el('button', { class: 'btn sm', id: 'lottery-preset-custom', onclick: () => { optsArea.value = ''; } }, '✏️ 自定义'));
+    presetBar.appendChild(UI.el('span', { class: 'muted' }, '点击填入模板，可再修改'));
+    optsCard.appendChild(presetBar);
+
+    const optsBtns = UI.el('div', { class: 'row', style: 'margin-top:12px' }, [
+      UI.el('button', { class: 'btn primary', id: 'lottery-save', onclick: () => saveOptions() }, '保存选项'),
+      UI.el('button', { class: 'btn', id: 'lottery-clear', onclick: () => { optsArea.value = ''; lottery.options = []; saveSettings(); } }, '清空选项')
+    ]);
+    optsCard.appendChild(optsBtns);
+
+    /* 抽签区 */
+    const drawCard = UI.el('div', { class: 'card lottery-draw' });
+    const countInput = UI.numInput(lottery.count, { id: 'lottery-count', min: '1', max: '20', step: '1' });
+    const repeatWrap = UI.el('div', { class: 'field' });
+    repeatWrap.appendChild(UI.el('label', {}, '允许重复'));
+    const repeatInput = UI.el('input', { type: 'checkbox', id: 'lottery-repeat', checked: lottery.allowRepeat ? 'checked' : null });
+    repeatWrap.appendChild(repeatInput);
+    const drawRow = UI.el('div', { class: 'row' }, [
+      UI.field('抽取数量', countInput),
+      repeatWrap
+    ]);
+    drawCard.appendChild(drawRow);
+
+    const resultBox = UI.el('div', { class: 'lottery-result', id: 'lottery-result' });
+    resultBox.appendChild(UI.el('div', { class: 'lottery-result-placeholder' }, '点击下方按钮开始抽签'));
+    const drawBtn = UI.el('button', { class: 'btn primary lg', id: 'lottery-draw', onclick: () => draw() }, '🎲 开始抽签');
+    drawCard.appendChild(resultBox);
+    drawCard.appendChild(UI.el('div', { style: 'text-align:center' }, drawBtn));
+
+    /* 历史记录 */
+    const histCard = UI.el('div', { class: 'card lottery-history' });
+    const histList = UI.el('div', { id: 'lottery-history-list' });
+    histCard.appendChild(UI.el('div', { class: 'lottery-hist-head' }, [
+      UI.el('div', { class: 'group-label' }, '历史记录'),
+      UI.el('button', { class: 'btn sm', id: 'lottery-hist-clear', onclick: () => clearHistory() }, '清空历史')
+    ]));
+    histCard.appendChild(histList);
+
+    container.appendChild(optsCard);
+    container.appendChild(drawCard);
+    container.appendChild(histCard);
+
+    lottery.ui = { optsArea, countInput, repeatInput, resultBox, drawBtn, histList };
+
+    function saveSettings() {
+      return store().setSettings({ lottery: { options: lottery.options, count: lottery.count, allowRepeat: lottery.allowRepeat } });
+    }
+
+    function saveOptions() {
+      const list = optsArea.value.split('\n').map(s => s.trim()).filter(Boolean);
+      if (!list.length) { UI.toast('请至少填写一个选项', 'error'); return; }
+      lottery.options = list;
+      saveSettings().then(() => UI.toast('抽签选项已保存', 'success'));
+    }
+
+    function renderHistory() {
+      const ui = lottery.ui;
+      if (!ui || !ui.histList.isConnected) return;
+      ui.histList.innerHTML = '';
+      if (!lottery.history.length) {
+        ui.histList.appendChild(UI.el('div', { class: 'muted', style: 'padding:8px 0' }, '暂无抽签记录'));
+        return;
+      }
+      lottery.history.slice(0, 20).forEach(h => {
+        const chips = h.results.map(r => UI.el('span', { class: 'lottery-chip' }, r));
+        ui.histList.appendChild(UI.el('div', { class: 'lottery-hist-row' }, [
+          UI.el('div', { class: 'lottery-hist-time' }, h.time || ''),
+          UI.el('div', { class: 'lottery-hist-results' }, chips)
+        ]));
+      });
+    }
+
+    function clearHistory() {
+      const items = store().all('lotteryHistory').slice();
+      if (!items.length) { UI.toast('暂无历史记录', 'info'); return; }
+      Promise.all(items.map(it => store().remove('lotteryHistory', it.id))).then(() => {
+        lottery.history = [];
+        renderHistory();
+        UI.toast('历史记录已清空', 'success');
+      });
+    }
+
+    function showResults(results, rolling) {
+      const ui = lottery.ui;
+      if (!ui || !ui.resultBox.isConnected) return;
+      ui.resultBox.innerHTML = '';
+      ui.resultBox.classList.toggle('rolling', !!rolling);
+      if (results.length === 1) {
+        const big = UI.el('div', { class: 'lottery-result-main' }, results[0]);
+        ui.resultBox.appendChild(big);
+      } else {
+        results.forEach((r, i) => {
+          ui.resultBox.appendChild(UI.el('div', { class: 'lottery-result-item' }, [
+            UI.el('span', { class: 'lottery-result-no' }, String(i + 1)),
+            UI.el('span', { class: 'lottery-result-txt' }, r)
+          ]));
+        });
+      }
+    }
+
+    function draw() {
+      const count = Math.round(U.clamp(parseInt(countInput.value, 10) || 1, 1, 20));
+      const allowRepeat = repeatInput.checked;
+      if (!lottery.options.length) { UI.toast('请先填写并保存抽签选项', 'error'); return; }
+      if (!allowRepeat && count > lottery.options.length) { UI.toast('不重复抽取时，数量不能超过选项数', 'error'); return; }
+      lottery.count = count;
+      lottery.allowRepeat = allowRepeat;
+      saveSettings();
+      const final = lotteryPick(count, allowRepeat);
+      drawBtn.disabled = true;
+      let tick = 0;
+      lottery.animId = setInterval(() => {
+        tick++;
+        showResults(lotteryPick(1, false), true);
+        if (tick >= 12) {
+          clearInterval(lottery.animId);
+          lottery.animId = null;
+          showResults(final, false);
+          drawBtn.disabled = false;
+          const rec = { time: lotteryNowStr(), count, allowRepeat, results: final.slice() };
+          store().add('lotteryHistory', rec).then(() => {
+            lottery.history.unshift(rec);
+            renderHistory();
+          });
+        }
+      }, 130);
+    }
+
+    renderHistory();
   }
   global.Stellarium.Router.register('tools', render, '实用小工具');
 })(typeof window !== 'undefined' ? window : globalThis);

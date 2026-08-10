@@ -295,3 +295,36 @@ th { color: var(--text-2); font-weight: 600; font-size: 12px; }
 .pomo-count { text-align: center; margin-top: 12px; font-size: 13px; color: var(--text-2); }
 .pomo-settings { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px; }
 .pomo-settings input[type="checkbox"] { width: 18px; height: 18px; margin-top: 6px; }
+/* 随机抽签 */
+.btn.lg { padding: 10px 26px; font-size: 15px; }
+.lottery-options textarea {
+  width: 100%; min-height: 110px; resize: vertical; box-sizing: border-box;
+  padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--card-solid); color: var(--text); font-size: 13px; font-family: inherit;
+}
+.lottery-options textarea:focus { outline: none; border-color: var(--accent); }
+.lottery-presets { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+.lottery-result {
+  min-height: 96px; margin: 14px 0; padding: 14px; border: 1px dashed var(--border);
+  border-radius: var(--radius); display: flex; flex-direction: column; gap: 8px;
+  align-items: center; justify-content: center;
+}
+.lottery-result.rolling .lottery-result-main { filter: blur(2px); }
+.lottery-result-placeholder { color: var(--text-2); font-size: 13px; }
+.lottery-result-main { font-size: 34px; font-weight: 700; color: var(--accent); text-align: center; word-break: break-all; }
+.lottery-result-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 14px; min-width: 180px;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.lottery-result-no {
+  width: 22px; height: 22px; border-radius: 50%; flex: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;
+}
+.lottery-result-txt { font-size: 15px; font-weight: 600; }
+.lottery-hist-head { display: flex; justify-content: space-between; align-items: center; }
+.lottery-hist-head .group-label { margin: 0; }
+.lottery-hist-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+.lottery-hist-time { font-size: 12px; color: var(--text-2); white-space: nowrap; padding-top: 3px; }
+.lottery-hist-results { display: flex; flex-wrap: wrap; gap: 6px; }
+.lottery-chip { font-size: 12px; padding: 2px 8px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--border); }
