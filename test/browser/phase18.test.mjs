@@ -59,7 +59,7 @@ test('Phase18: 拆分/提取卡片无即将上线标记', async () => {
     await page.waitForSelector('.tool-card');
     assert.equal(await page.locator('.tool-card[data-tool="pdf-split"] .soon').count(), 0);
     assert.equal(await page.locator('.tool-card[data-tool="pdf-word"] .soon').count(), 0);
-    assert.equal(await page.locator('.tool-card[data-tool="pdf-ppt"] .soon').count(), 1);
+    assert.equal(await page.locator('.tool-card[data-tool="pdf-ppt"] .soon').count(), 0);
     assertNoErrors(errors);
   } finally { await browser.close(); }
 });

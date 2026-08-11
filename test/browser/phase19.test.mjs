@@ -33,7 +33,7 @@ test('Phase19: PDF→Word 卡片无即将上线标记', async () => {
     await page.evaluate(() => window.Stellarium.Router.navigate('tools'));
     await page.waitForSelector('.tool-card');
     assert.equal(await page.locator('.tool-card[data-tool="pdf-word"] .soon').count(), 0);
-    assert.equal(await page.locator('.tool-card[data-tool="pdf-ppt"] .soon').count(), 1);
+    assert.equal(await page.locator('.tool-card[data-tool="pdf-ppt"] .soon').count(), 0);
     assertNoErrors(errors);
   } finally { await browser.close(); }
 });

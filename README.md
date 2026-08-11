@@ -18,7 +18,7 @@
 | 开发工作 | 项目任务、学习积累、问题库 |
 | 健身计划 | 周计划、训练记录、身体数据趋势 |
 | 饮食计划 | 三餐记录、历史、计划模板 |
-| 实用小工具 | 计算器、随机数生成器、单位换算、番茄钟、随机抽签、掷骰子、备忘便签、PDF 合并、PDF 拆分/提取页面、PDF→Word（PDF→PPT 陆续上线） |
+| 实用小工具 | 计算器、随机数生成器、单位换算、番茄钟、随机抽签、掷骰子、备忘便签、PDF 合并、PDF 拆分/提取页面、PDF→Word、PDF→PPT |
 | 游戏娱乐 | 占位（暂未开发） |
 | 数据与设置 | 导出/导入备份、清空数据、主题等设置 |
 
@@ -45,6 +45,6 @@ node --test "test/browser/*.test.mjs"
 
 ## 技术说明
 
-- 纯 HTML + CSS + 原生 JavaScript，无框架、无构建步骤；PDF 处理基于本地内置的开源库 pdf-lib、pdf.js、docx（MIT/Apache-2.0），全程离线、数据不出本机。
+- 纯 HTML + CSS + 原生 JavaScript，无框架、无构建步骤；PDF/文档处理基于本地内置的开源库 pdf-lib、pdf.js、docx、pptxgenjs（MIT/Apache-2.0），全程离线、数据不出本机。
 - 存储抽象层：IndexedDB（默认）→ localStorage（兜底）→ memory（测试）。
 - 主题：星空暗色（默认）/ 极简浅色，在「数据与设置」中切换。

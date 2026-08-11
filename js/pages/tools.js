@@ -18,7 +18,7 @@
         dataset: { tool: t.id },
         onclick: () => openTool(container, t)
       }, [
-        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice' || t.id === 'notes' || t.id === 'pdf-merge' || t.id === 'pdf-split' || t.id === 'pdf-word') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
+        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice' || t.id === 'notes' || t.id === 'pdf-merge' || t.id === 'pdf-split' || t.id === 'pdf-word' || t.id === 'pdf-ppt') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
         UI.el('div', { class: 't-ico' }, t.icon),
         UI.el('div', { class: 't-name' }, t.name)
       ]));
@@ -37,6 +37,7 @@
     if (tool.id === 'pdf-merge') { renderPdfMerge(container); return; }
     if (tool.id === 'pdf-split') { renderPdfSplit(container); return; }
     if (tool.id === 'pdf-word') { renderPdfWord(container); return; }
+    if (tool.id === 'pdf-ppt') { renderPdfPpt(container); return; }
     UI.toast('该工具暂未开发，敬请期待', 'info');
   }
 
@@ -1631,6 +1632,181 @@ function renderPdfWord(container) {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  }
+}
+/* ============ PDF → PPT ============ */
+const PDF_PPT = { file: null, total: 0 };
+
+function renderPdfPpt(container) {
+  PDF_PPT.file = null;
+  PDF_PPT.total = 0;
+  container.innerHTML = '';
+  container.appendChild(UI.el('div', { class: 'page-head' }, [
+    UI.el('h1', { class: 'page-title' }, 'PDF → PPT'),
+    UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
+  ]));
+
+  const card = UI.el('div', { class: 'card pdf-panel' });
+  card.appendChild(UI.el('div', { class: 'pdf-level-bar' }, [
+    UI.el('span', { class: 'pdf-level gold' }, '≤10MB 黄金区间'),
+    UI.el('span', { class: 'pdf-level ok' }, '10~25MB 舒适'),
+    UI.el('span', { class: 'pdf-level caution' }, '25~50MB 谨慎'),
+    UI.el('span', { class: 'pdf-level no' }, '50~100MB 不推荐'),
+    UI.el('span', { class: 'pdf-level block' }, '>100MB 拒绝上传')
+  ]));
+
+  const input = UI.el('input', { type: 'file', accept: '.pdf,application/pdf', id: 'pdf-ppt-input', style: 'display:none' });
+  input.addEventListener('change', () => { loadFile(input.files[0]); input.value = ''; });
+  const drop = UI.el('div', { class: 'pdf-drop', id: 'pdf-ppt-drop', onclick: () => input.click() }, [
+    UI.el('div', { class: 'pdf-drop-ico' }, '📄'),
+    UI.el('div', { class: 'pdf-drop-txt' }, '点击选择或拖拽一个 PDF 到此处'),
+    UI.el('div', { class: 'muted sm' }, '单个文件超过 100MB 将被拒绝')
+  ]);
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('over');
+    if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+  card.appendChild(input);
+  card.appendChild(drop);
+
+  const fileInfo = UI.el('div', { class: 'pdf-file-info', id: 'pdf-ppt-info', style: 'display:none' });
+  card.appendChild(fileInfo);
+
+  const opts = UI.el('div', { class: 'pdf-options' });
+  const ratioSel = UI.selectInput([
+    ['WIDE', '16:9 宽屏（推荐）'],
+    ['STD', '4:3 标准']
+  ], 'WIDE', { id: 'pdf-ppt-ratio' });
+  const qSel = UI.selectInput([
+    ['1', '低（100%）'],
+    ['1.5', '中（150%，推荐）'],
+    ['2', '高（200%）']
+  ], '1.5', { id: 'pdf-ppt-quality' });
+  const notesCheck = UI.el('input', { type: 'checkbox', id: 'pdf-ppt-notes', checked: true });
+  opts.appendChild(UI.el('div', { class: 'pdf-opt-line' }, [
+    UI.el('span', { class: 'muted' }, '幻灯片尺寸：'),
+    ratioSel
+  ]));
+  opts.appendChild(UI.el('div', { class: 'pdf-opt-line' }, [
+    UI.el('span', { class: 'muted' }, '页面清晰度：'),
+    qSel
+  ]));
+  opts.appendChild(UI.el('label', { class: 'pdf-opt-line' }, [
+    notesCheck,
+    UI.el('span', {}, '把每页文字放入 PPT 备注（便于检索，不占版面）')
+  ]));
+  opts.appendChild(UI.el('div', { class: 'pdf-tip muted sm' }, '说明：每页 PDF 渲染为一张幻灯片图片（视觉保真）。文字以备注形式附在对应页，版面本身不可编辑。'));
+  card.appendChild(opts);
+
+  const btn = UI.el('button', { class: 'btn primary lg', id: 'pdf-ppt-btn', disabled: true, onclick: () => convertToPpt() }, '📊 转换为 PPT');
+  card.appendChild(UI.el('div', { class: 'pdf-actions' }, btn));
+  const preview = UI.el('div', { class: 'pdf-preview muted sm', id: 'pdf-ppt-preview' }, '');
+  card.appendChild(preview);
+  container.appendChild(card);
+
+  function resetFile() {
+    PDF_PPT.file = null;
+    PDF_PPT.total = 0;
+    fileInfo.style.display = 'none';
+    fileInfo.innerHTML = '';
+    preview.textContent = '';
+    btn.disabled = true;
+  }
+
+  async function loadFile(f) {
+    if (!f) return;
+    if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') { UI.toast('「' + f.name + '」不是 PDF 文件', 'warn'); return; }
+    const lv = U.pdfSizeLevel(f.size);
+    if (lv.block) { UI.toast('「' + f.name + '」超过 100MB，不允许上传', 'error'); return; }
+    drop.classList.add('over');
+    try {
+      if (!global.PDFLib) throw new Error('PDF 处理库未加载');
+      const bytes = await f.arrayBuffer();
+      const doc = await global.PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+      PDF_PPT.file = f;
+      PDF_PPT.total = doc.getPageCount();
+      fileInfo.style.display = '';
+      fileInfo.innerHTML = '';
+      fileInfo.appendChild(UI.el('span', { class: 'pdf-name' }, f.name));
+      fileInfo.appendChild(UI.el('span', { class: 'pdf-meta' }, [
+        fmtSize(f.size),
+        UI.el('span', { class: 'pdf-badge ' + lv.level }, lv.label),
+        UI.el('span', {}, '共 ' + PDF_PPT.total + ' 页')
+      ]));
+      fileInfo.appendChild(UI.el('button', { class: 'btn sm danger', id: 'pdf-ppt-clear', onclick: () => resetFile() }, '删除'));
+      preview.textContent = '将转换 ' + PDF_PPT.total + ' 页为 PPT（每页一张幻灯片）';
+      btn.disabled = false;
+      UI.toast('已载入，共 ' + PDF_PPT.total + ' 页', 'success');
+    } catch (err) {
+      resetFile();
+      UI.toast('「' + f.name + '」读取失败（可能已加密或损坏）', 'error');
+    } finally {
+      drop.classList.remove('over');
+    }
+  }
+
+  async function convertToPpt() {
+    if (!PDF_PPT.file) { UI.toast('请先上传 PDF 文件', 'warn'); return; }
+    if (!global.pdfjsLib || !global.PptxGenJS) { UI.toast('转换组件未加载，请刷新页面后重试', 'error'); return; }
+    const ratio = ratioSel.value;
+    const scale = parseFloat(qSel.value) || 1.5;
+    const withNotes = notesCheck.checked;
+    btn.disabled = true;
+    try {
+      global.pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/lib/pdf.worker.min.js';
+      const bytes = await PDF_PPT.file.arrayBuffer();
+      const pdf = await global.pdfjsLib.getDocument({ data: bytes }).promise;
+      const PptxGenJS = global.PptxGenJS;
+      const pptx = new PptxGenJS();
+      const slideW = ratio === 'STD' ? 10 : 13.33;
+      const slideH = 7.5;
+      pptx.defineLayout({ name: ratio, width: slideW, height: slideH });
+      pptx.layout = ratio;
+      const maxW = slideW - 0.8;
+      const maxH = slideH - 1.0;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        btn.textContent = '⏳ 正在渲染第 ' + i + '/' + pdf.numPages + ' 页…';
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.floor(viewport.width));
+        canvas.height = Math.max(1, Math.floor(viewport.height));
+        const ctx = canvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const inchW = viewport.width / 96;
+        const inchH = viewport.height / 96;
+        const fit = Math.min(maxW / inchW, maxH / inchH);
+        const w = inchW * fit;
+        const h = inchH * fit;
+        const slide = pptx.addSlide();
+        slide.addImage({
+          data: dataUrl,
+          x: (slideW - w) / 2,
+          y: (slideH - h) / 2,
+          w: w,
+          h: h
+        });
+        if (withNotes) {
+          try {
+            const content = await page.getTextContent();
+            const lines = U.groupTextItems(content.items);
+            slide.addNotes(lines.join('\n') || '（本页无可提取文字）');
+          } catch (e) { slide.addNotes('（本页文字提取失败）'); }
+        }
+      }
+      btn.textContent = '⏳ 正在打包 PPT…';
+      const base = (PDF_PPT.file.name.replace(/\.pdf$/i, '') || 'pdf');
+      await pptx.writeFile({ fileName: base + '-转PPT.pptx' });
+      UI.toast('转换完成，共 ' + pdf.numPages + ' 页', 'success');
+    } catch (err) {
+      UI.toast('转换失败：' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📊 转换为 PPT';
+    }
   }
 }
 global.Stellarium.Router.register('tools', render, '实用小工具');
