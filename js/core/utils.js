@@ -60,6 +60,16 @@
 
   function clamp(n, min, max) { return Math.min(max, Math.max(min, n)); }
 
+  /* PDF 文件大小分级（单位：字节），黄金 ≤10MB / 舒适 ≤25MB / 谨慎 ≤50MB / 不推荐 >50MB */
+  function pdfSizeLevel(size) {
+    const mb = size / 1048576;
+    if (mb <= 10) return { level: 'gold', label: '黄金区间', desc: '≤10MB，处理速度最佳', warn: false, block: false };
+    if (mb <= 25) return { level: 'ok', label: '舒适区间', desc: '10MB~25MB，处理流畅', warn: false, block: false };
+    if (mb <= 50) return { level: 'caution', label: '谨慎区间', desc: '25MB~50MB，处理偏慢', warn: true, block: false };
+    if (mb <= 100) return { level: 'no', label: '不推荐区间', desc: '50MB~100MB，处理慢且占用大量内存', warn: true, block: false };
+    return { level: 'block', label: '不允许上传', desc: '>100MB，浏览器无法可靠处理', warn: true, block: true };
+  }
+
   function money(n) { const v = Number(n) || 0; return (Math.round(v * 100) / 100).toFixed(2); }
 
   function parseAmount(str) {
@@ -83,7 +93,7 @@
 
   const Utils = {
     pad2, toDate, dateStr, todayStr, addDays, formatDateCN, weekdayCN, monthKey,
-    monthRange, weekStart, addMonths, uid, clamp, money, parseAmount, escapeHtml, monthDates
+    monthRange, weekStart, addMonths, uid, clamp, pdfSizeLevel, money, parseAmount, escapeHtml, monthDates
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Utils;

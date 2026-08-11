@@ -18,7 +18,7 @@
         dataset: { tool: t.id },
         onclick: () => openTool(container, t)
       }, [
-        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice' || t.id === 'notes') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
+        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice' || t.id === 'notes' || t.id === 'pdf-merge') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
         UI.el('div', { class: 't-ico' }, t.icon),
         UI.el('div', { class: 't-name' }, t.name)
       ]));
@@ -34,6 +34,7 @@
     if (tool.id === 'lottery') { renderLottery(container); return; }
     if (tool.id === 'dice') { renderDice(container); return; }
     if (tool.id === 'notes') { renderNotes(container); return; }
+    if (tool.id === 'pdf-merge') { renderPdfMerge(container); return; }
     UI.toast('该工具暂未开发，敬请期待', 'info');
   }
 
@@ -1048,5 +1049,159 @@
 
     renderList();
   }
-  global.Stellarium.Router.register('tools', render, '实用小工具');
+  
+/* ============ PDF 合并 ============ */
+const PDF_MERGE = { files: [] };
+
+function fmtSize(n) {
+  if (n >= 1048576) return (n / 1048576).toFixed(2) + ' MB';
+  if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+  return n + ' B';
+}
+
+function renderPdfMerge(container) {
+  PDF_MERGE.files = [];
+  container.innerHTML = '';
+  container.appendChild(UI.el('div', { class: 'page-head' }, [
+    UI.el('h1', { class: 'page-title' }, 'PDF 合并'),
+    UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
+  ]));
+
+  const card = UI.el('div', { class: 'card pdf-panel' });
+  const levelBar = UI.el('div', { class: 'pdf-level-bar' }, [
+    UI.el('span', { class: 'pdf-level gold' }, '≤10MB 黄金区间'),
+    UI.el('span', { class: 'pdf-level ok' }, '10~25MB 舒适'),
+    UI.el('span', { class: 'pdf-level caution' }, '25~50MB 谨慎'),
+    UI.el('span', { class: 'pdf-level no' }, '50~100MB 不推荐'),
+    UI.el('span', { class: 'pdf-level block' }, '>100MB 拒绝上传')
+  ]);
+  const input = UI.el('input', { type: 'file', accept: '.pdf,application/pdf', multiple: true, id: 'pdf-merge-input', style: 'display:none' });
+  input.addEventListener('change', () => { addFiles(input.files); input.value = ''; });
+  const drop = UI.el('div', { class: 'pdf-drop', id: 'pdf-drop', onclick: () => input.click() }, [
+    UI.el('div', { class: 'pdf-drop-ico' }, '📄'),
+    UI.el('div', { class: 'pdf-drop-txt' }, '点击选择或拖拽多个 PDF 到此处'),
+    UI.el('div', { class: 'muted sm' }, '支持多选，添加后可排序或删除')
+  ]);
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('over');
+    addFiles(e.dataTransfer.files);
+  });
+  card.appendChild(levelBar);
+  card.appendChild(input);
+  card.appendChild(drop);
+  card.appendChild(UI.el('div', { class: 'pdf-hint muted sm', style: 'margin-top:10px' }, '单个文件超过 100MB 将被拒绝上传；50MB 以上处理会偏慢，建议先拆分或压缩'));
+
+  const list = UI.el('div', { class: 'pdf-list', id: 'pdf-merge-list' });
+  card.appendChild(list);
+
+  const mergeBtn = UI.el('button', { class: 'btn primary lg', id: 'pdf-merge-btn', disabled: true, onclick: () => mergePdfs() }, '📎 开始合并');
+  card.appendChild(UI.el('div', { class: 'pdf-actions' }, mergeBtn));
+  container.appendChild(card);
+
+  renderList();
+
+  function addFiles(fileList) {
+    for (const f of fileList) {
+      if (!/\\.pdf$/i.test(f.name) && f.type !== 'application/pdf') {
+        UI.toast('「' + f.name + '」不是 PDF 文件，已跳过', 'warn');
+        continue;
+      }
+      const lv = U.pdfSizeLevel(f.size);
+      if (lv.block) {
+        UI.toast('「' + f.name + '」超过 100MB，不允许上传', 'error');
+        continue;
+      }
+      PDF_MERGE.files.push({ name: f.name, size: f.size, file: f });
+    }
+    renderList();
+  }
+
+  function renderList() {
+    list.innerHTML = '';
+    if (!PDF_MERGE.files.length) {
+      list.appendChild(UI.emptyState('📑', '尚未添加 PDF 文件', null));
+      mergeBtn.disabled = true;
+      return;
+    }
+    mergeBtn.disabled = false;
+    PDF_MERGE.files.forEach((item, i) => {
+      const lv = U.pdfSizeLevel(item.size);
+      const row = UI.el('div', { class: 'pdf-row' });
+      row.appendChild(UI.el('span', { class: 'pdf-idx' }, String(i + 1)));
+      row.appendChild(UI.el('span', { class: 'pdf-info' }, [
+        UI.el('div', { class: 'pdf-name' }, item.name),
+        UI.el('div', { class: 'pdf-meta' }, [
+          fmtSize(item.size),
+          UI.el('span', { class: 'pdf-badge ' + lv.level }, lv.label)
+        ])
+      ]));
+      const ops = UI.el('div', { class: 'pdf-ops' });
+      const upBtn = UI.el('button', { class: 'btn sm ghost', onclick: () => move(i, -1) }, '↑');
+      if (i === 0) upBtn.disabled = true;
+      ops.appendChild(upBtn);
+      const downBtn = UI.el('button', { class: 'btn sm ghost', onclick: () => move(i, 1) }, '↓');
+      if (i === PDF_MERGE.files.length - 1) downBtn.disabled = true;
+      ops.appendChild(downBtn);
+      ops.appendChild(UI.el('button', { class: 'btn sm danger', onclick: () => remove(i) }, '删除'));
+      row.appendChild(ops);
+      list.appendChild(row);
+    });
+  }
+
+  function move(i, dir) {
+    const j = i + dir;
+    if (j < 0 || j >= PDF_MERGE.files.length) return;
+    const tmp = PDF_MERGE.files[i]; PDF_MERGE.files[i] = PDF_MERGE.files[j]; PDF_MERGE.files[j] = tmp;
+    renderList();
+  }
+
+  function remove(i) {
+    PDF_MERGE.files.splice(i, 1);
+    renderList();
+  }
+
+  async function mergePdfs() {
+    if (!PDF_MERGE.files.length) return;
+    const heavy = PDF_MERGE.files.filter(f => U.pdfSizeLevel(f.size).level === 'no');
+    if (heavy.length && !(await UI.confirmDialog({
+      title: '继续合并？',
+      message: '包含 ' + heavy.length + ' 个超过 50MB 的文件，处理可能较慢或内存不足，是否仍要继续？',
+      danger: false, confirmText: '继续', cancelText: '取消'
+    }))) return;
+    mergeBtn.disabled = true;
+    mergeBtn.textContent = '⏳ 合并中…';
+    try {
+      if (!global.PDFLib) { UI.toast('PDF 处理库未加载，请刷新页面后重试', 'error'); return; }
+      const out = await global.PDFLib.PDFDocument.create();
+      for (const item of PDF_MERGE.files) {
+        try {
+          const bytes = await item.file.arrayBuffer();
+          const src = await global.PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+          const pages = await out.copyPages(src, src.getPageIndices());
+          pages.forEach(p => out.addPage(p));
+        } catch (err) {
+          UI.toast('「' + item.name + '」读取失败（可能已加密或损坏），已跳过', 'warn');
+        }
+      }
+      if (!out.getPageCount()) { UI.toast('没有可合并的有效页面', 'warn'); return; }
+      const data = await out.save();
+      const base = (PDF_MERGE.files[0].name || 'merged').replace(/\\.pdf$/i, '');
+      const blob = new Blob([data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = base + '-合并.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      UI.toast('合并完成，共 ' + out.getPageCount() + ' 页', 'success');
+    } catch (err) {
+      UI.toast('合并失败：' + err.message, 'error');
+    } finally {
+      mergeBtn.disabled = false;
+      mergeBtn.textContent = '📎 开始合并';
+    }
+  }
+}
+global.Stellarium.Router.register('tools', render, '实用小工具');
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -500,3 +500,29 @@ tbody tr:hover { background: var(--hover); }
     transition-duration: 0.01ms !important;
   }
 }
+/* ===== PDF 工具 ===== */
+.pdf-level-bar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.pdf-level { padding:4px 10px; border-radius:var(--radius-pill); font-size:12px; font-weight:600; }
+.pdf-level.gold { background:rgba(52,211,153,.14); color:#34d399; border:1px solid rgba(52,211,153,.3); }
+.pdf-level.ok { background:rgba(96,165,250,.14); color:#60a5fa; border:1px solid rgba(96,165,250,.3); }
+.pdf-level.caution { background:rgba(251,191,36,.14); color:#fbbf24; border:1px solid rgba(251,191,36,.3); }
+.pdf-level.no { background:rgba(248,113,113,.14); color:#f87171; border:1px solid rgba(248,113,113,.3); }
+.pdf-drop { border:2px dashed var(--border); border-radius:var(--radius); padding:30px 20px; text-align:center; cursor:pointer; transition:border-color .2s, background .2s; }
+.pdf-drop:hover, .pdf-drop.over { border-color:var(--accent); background:var(--hover); }
+.pdf-drop-ico { font-size:34px; margin-bottom:8px; }
+.pdf-drop-txt { font-weight:600; margin-bottom:4px; }
+.pdf-list { margin-top:14px; display:flex; flex-direction:column; gap:8px; }
+.pdf-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--card-solid); }
+.pdf-idx { width:24px; height:24px; flex:none; display:flex; align-items:center; justify-content:center; border-radius:50%; background:var(--hover); color:var(--text-2); font-size:12px; font-weight:700; }
+.pdf-info { flex:1; min-width:0; }
+.pdf-name { font-weight:600; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pdf-meta { display:flex; align-items:center; gap:8px; margin-top:2px; color:var(--text-3); font-size:12px; }
+.pdf-badge { padding:2px 8px; border-radius:var(--radius-pill); font-size:11px; font-weight:600; }
+.pdf-badge.gold { background:rgba(52,211,153,.14); color:#34d399; }
+.pdf-badge.ok { background:rgba(96,165,250,.14); color:#60a5fa; }
+.pdf-badge.caution { background:rgba(251,191,36,.14); color:#fbbf24; }
+.pdf-badge.no { background:rgba(248,113,113,.14); color:#f87171; }
+.pdf-actions { margin-top:16px; text-align:center; }
+.pdf-ops { display:flex; gap:6px; flex:none; }
+.pdf-level.block { background:rgba(248,113,113,.16); color:#f87171; border:1px solid rgba(248,113,113,.4); }
+.pdf-hint { color:var(--text-3); font-size:12px; }

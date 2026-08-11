@@ -38,7 +38,7 @@ test('seed: 默认数据', () => {
   const seed = Seed.seedData();
   assert.equal(seed.categories.length, 6);
   assert.equal(seed.categories[0].name, '餐饮');
-  assert.equal(seed.tools.length, 7);
+  assert.equal(seed.tools.length, 11);
   assert.equal(seed.games.length, 5);
   assert.equal(seed.commonExercises.length, 7);
   assert.equal(seed.settings.theme, 'dark');

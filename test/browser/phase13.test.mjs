@@ -100,7 +100,7 @@ test('Phase13: 卡片无即将上线标记并可返回', async () => {
     await page.waitForSelector('#pomo-time');
     await page.getByRole('button', { name: '← 返回工具列表' }).click();
     await page.waitForSelector('.tool-card');
-    assert.equal(await page.locator('.tool-card').count(), 7);
+    assert.equal(await page.locator('.tool-card').count(), 11);
     assertNoErrors(errors);
   } finally { await browser.close(); }
 });

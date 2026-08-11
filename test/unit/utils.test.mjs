@@ -31,3 +31,21 @@ test('utils: 金额与转义', () => {
 test('utils: uid 唯一', () => {
   assert.notEqual(Utils.uid(), Utils.uid());
 });
+test('utils: PDF 大小分级', () => {
+  const MB = 1048576;
+  assert.equal(Utils.pdfSizeLevel(1 * MB).level, 'gold');
+  assert.equal(Utils.pdfSizeLevel(10 * MB).level, 'gold');
+  assert.equal(Utils.pdfSizeLevel(10 * MB + 1).level, 'ok');
+  assert.equal(Utils.pdfSizeLevel(25 * MB).level, 'ok');
+  assert.equal(Utils.pdfSizeLevel(25 * MB + 1).level, 'caution');
+  assert.equal(Utils.pdfSizeLevel(50 * MB).level, 'caution');
+  assert.equal(Utils.pdfSizeLevel(50 * MB + 1).level, 'no');
+  assert.equal(Utils.pdfSizeLevel(100 * MB).level, 'no');
+  assert.equal(Utils.pdfSizeLevel(100 * MB + 1).level, 'block');
+  assert.equal(Utils.pdfSizeLevel(200 * MB).level, 'block');
+  assert.equal(Utils.pdfSizeLevel(100 * MB + 1).block, true);
+  assert.equal(Utils.pdfSizeLevel(50 * MB).block, false);
+  assert.equal(Utils.pdfSizeLevel(10 * MB).warn, false);
+  assert.equal(Utils.pdfSizeLevel(50 * MB + 1).warn, true);
+  assert.ok(Utils.pdfSizeLevel(0).label.includes('黄金'));
+});
