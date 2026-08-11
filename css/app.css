@@ -526,3 +526,7 @@ tbody tr:hover { background: var(--hover); }
 .pdf-ops { display:flex; gap:6px; flex:none; }
 .pdf-level.block { background:rgba(248,113,113,.16); color:#f87171; border:1px solid rgba(248,113,113,.4); }
 .pdf-hint { color:var(--text-3); font-size:12px; }
+.pdf-file-info { display:flex; align-items:center; gap:10px; padding:10px 12px; margin-top:12px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--card-solid); }
+.pdf-mode-panel { margin-top:14px; }
+.pdf-mode-actions { display:flex; gap:8px; margin-top:12px; }
+.pdf-preview { margin-top:10px; min-height:18px; }

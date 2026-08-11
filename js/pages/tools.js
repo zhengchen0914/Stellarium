@@ -18,7 +18,7 @@
         dataset: { tool: t.id },
         onclick: () => openTool(container, t)
       }, [
-        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice' || t.id === 'notes' || t.id === 'pdf-merge') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
+        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice' || t.id === 'notes' || t.id === 'pdf-merge' || t.id === 'pdf-split') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
         UI.el('div', { class: 't-ico' }, t.icon),
         UI.el('div', { class: 't-name' }, t.name)
       ]));
@@ -35,6 +35,7 @@
     if (tool.id === 'dice') { renderDice(container); return; }
     if (tool.id === 'notes') { renderNotes(container); return; }
     if (tool.id === 'pdf-merge') { renderPdfMerge(container); return; }
+    if (tool.id === 'pdf-split') { renderPdfSplit(container); return; }
     UI.toast('该工具暂未开发，敬请期待', 'info');
   }
 
@@ -1201,6 +1202,243 @@ function renderPdfMerge(container) {
       mergeBtn.disabled = false;
       mergeBtn.textContent = '📎 开始合并';
     }
+  }
+}
+/* ============ 拆分 / 提取页面 ============ */
+const PDF_SPLIT = { file: null, total: 0 };
+
+function splitEvery(total, n) {
+  const ranges = [];
+  for (let s = 1; s <= total; s += n) ranges.push([s, Math.min(s + n - 1, total)]);
+  return ranges;
+}
+
+function renderPdfSplit(container) {
+  PDF_SPLIT.file = null;
+  PDF_SPLIT.total = 0;
+  container.innerHTML = '';
+  container.appendChild(UI.el('div', { class: 'page-head' }, [
+    UI.el('h1', { class: 'page-title' }, '拆分 / 提取页面'),
+    UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
+  ]));
+
+  const card = UI.el('div', { class: 'card pdf-panel' });
+  card.appendChild(UI.el('div', { class: 'pdf-level-bar' }, [
+    UI.el('span', { class: 'pdf-level gold' }, '≤10MB 黄金区间'),
+    UI.el('span', { class: 'pdf-level ok' }, '10~25MB 舒适'),
+    UI.el('span', { class: 'pdf-level caution' }, '25~50MB 谨慎'),
+    UI.el('span', { class: 'pdf-level no' }, '50~100MB 不推荐'),
+    UI.el('span', { class: 'pdf-level block' }, '>100MB 拒绝上传')
+  ]));
+
+  const input = UI.el('input', { type: 'file', accept: '.pdf,application/pdf', id: 'pdf-split-input', style: 'display:none' });
+  input.addEventListener('change', () => { loadFile(input.files[0]); input.value = ''; });
+  const drop = UI.el('div', { class: 'pdf-drop', id: 'pdf-split-drop', onclick: () => input.click() }, [
+    UI.el('div', { class: 'pdf-drop-ico' }, '📄'),
+    UI.el('div', { class: 'pdf-drop-txt' }, '点击选择或拖拽一个 PDF 到此处'),
+    UI.el('div', { class: 'muted sm' }, '单个文件超过 100MB 将被拒绝')
+  ]);
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('over');
+    if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+  card.appendChild(input);
+  card.appendChild(drop);
+
+  const fileInfo = UI.el('div', { class: 'pdf-file-info', id: 'pdf-split-info', style: 'display:none' });
+  card.appendChild(fileInfo);
+
+  const tabs = UI.el('div', { class: 'tabs', id: 'pdf-split-tabs' });
+  const tabDefs = [
+    { id: 'extract', label: '提取页面' },
+    { id: 'split', label: '按份数拆分' },
+    { id: 'custom', label: '自定义拆分' }
+  ];
+  const tabBtns = tabDefs.map(t => UI.el('button', { class: 'tab', dataset: { mode: t.id }, onclick: () => setMode(t.id) }, t.label));
+  tabBtns.forEach(b => tabs.appendChild(b));
+  card.appendChild(tabs);
+
+  const extractPanel = UI.el('div', { class: 'pdf-mode-panel', id: 'pdf-extract-panel' });
+  const rangeInput = UI.textInput('', { id: 'pdf-extract-range', placeholder: '如 1-3,5,8-10' });
+  rangeInput.addEventListener('input', updatePreview);
+  const allBtn = UI.el('button', { class: 'btn sm', id: 'pdf-extract-all', onclick: () => { rangeInput.value = '1-' + PDF_SPLIT.total; updatePreview(); } }, '全部页');
+  extractPanel.appendChild(UI.field('页码范围（提取后按输入顺序合并为一个新 PDF）', rangeInput));
+  extractPanel.appendChild(UI.el('div', { class: 'pdf-mode-actions' }, [
+    allBtn,
+    UI.el('button', { class: 'btn primary', id: 'pdf-extract-btn', onclick: () => extractPages() }, '提取并下载')
+  ]));
+  extractPanel.appendChild(UI.el('div', { class: 'pdf-preview muted sm', id: 'pdf-extract-preview' }, ''));
+
+  const splitPanel = UI.el('div', { class: 'pdf-mode-panel', id: 'pdf-split-panel', style: 'display:none' });
+  const everyInput = UI.numInput(10, { id: 'pdf-split-every', min: '1', step: '1' });
+  everyInput.addEventListener('input', updatePreview);
+  splitPanel.appendChild(UI.field('每份页数', everyInput));
+  splitPanel.appendChild(UI.el('div', { class: 'pdf-mode-actions' }, [
+    UI.el('button', { class: 'btn primary', id: 'pdf-split-btn', onclick: () => splitEveryPages() }, '拆分并下载')
+  ]));
+  splitPanel.appendChild(UI.el('div', { class: 'pdf-preview muted sm', id: 'pdf-split-preview' }, ''));
+
+  const customPanel = UI.el('div', { class: 'pdf-mode-panel', id: 'pdf-custom-panel', style: 'display:none' });
+  const customInput = UI.textInput('', { id: 'pdf-custom-range', placeholder: '如 1-3,5,8-10（每个范围生成一个文件）' });
+  customInput.addEventListener('input', updatePreview);
+  customPanel.appendChild(UI.field('自定义拆分范围', customInput));
+  customPanel.appendChild(UI.el('div', { class: 'pdf-mode-actions' }, [
+    UI.el('button', { class: 'btn primary', id: 'pdf-custom-btn', onclick: () => customSplit() }, '拆分并下载')
+  ]));
+  customPanel.appendChild(UI.el('div', { class: 'pdf-preview muted sm', id: 'pdf-custom-preview' }, ''));
+
+  card.appendChild(extractPanel);
+  card.appendChild(splitPanel);
+  card.appendChild(customPanel);
+  container.appendChild(card);
+
+  tabBtns[0].classList.add('active');
+  updatePreview();
+
+  function setMode(mode) {
+    tabBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    extractPanel.style.display = mode === 'extract' ? '' : 'none';
+    splitPanel.style.display = mode === 'split' ? '' : 'none';
+    customPanel.style.display = mode === 'custom' ? '' : 'none';
+    updatePreview();
+  }
+
+  async function loadFile(f) {
+    if (!f) return;
+    if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') { UI.toast('「' + f.name + '」不是 PDF 文件', 'warn'); return; }
+    const lv = U.pdfSizeLevel(f.size);
+    if (lv.block) { UI.toast('「' + f.name + '」超过 100MB，不允许上传', 'error'); return; }
+    drop.classList.add('over');
+    try {
+      if (!global.PDFLib) throw new Error('PDF 处理库未加载');
+      const bytes = await f.arrayBuffer();
+      const doc = await global.PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+      PDF_SPLIT.file = f;
+      PDF_SPLIT.total = doc.getPageCount();
+      fileInfo.style.display = '';
+      fileInfo.innerHTML = '';
+      fileInfo.appendChild(UI.el('span', { class: 'pdf-name' }, f.name));
+      fileInfo.appendChild(UI.el('span', { class: 'pdf-meta' }, [
+        fmtSize(f.size),
+        UI.el('span', { class: 'pdf-badge ' + lv.level }, lv.label),
+        UI.el('span', {}, '共 ' + PDF_SPLIT.total + ' 页')
+      ]));
+      rangeInput.value = '';
+      customInput.value = '';
+      everyInput.value = '10';
+      updatePreview();
+      UI.toast('已载入，共 ' + PDF_SPLIT.total + ' 页', 'success');
+    } catch (err) {
+      PDF_SPLIT.file = null;
+      PDF_SPLIT.total = 0;
+      fileInfo.style.display = 'none';
+      UI.toast('「' + f.name + '」读取失败（可能已加密或损坏）', 'error');
+    } finally {
+      drop.classList.remove('over');
+    }
+  }
+
+  function updatePreview() {
+    if (!PDF_SPLIT.file) { setPreview('extract', ''); setPreview('split', ''); setPreview('custom', ''); return; }
+    const mode = (tabBtns.find(b => b.classList.contains('active')) || tabBtns[0]).dataset.mode;
+    if (mode === 'extract') {
+      const r = U.parsePageRanges(rangeInput.value, PDF_SPLIT.total);
+      setPreview('extract', r.ok ? '将提取 ' + countPages(r.ranges) + ' 页' : (r.error || ''));
+    } else if (mode === 'split') {
+      const n = Math.max(1, Math.round(parseInt(everyInput.value, 10) || 1));
+      const ranges = splitEvery(PDF_SPLIT.total, n);
+      setPreview('split', '共 ' + PDF_SPLIT.total + ' 页，将生成 ' + ranges.length + ' 个文件');
+    } else {
+      const r = U.parsePageRanges(customInput.value, PDF_SPLIT.total);
+      setPreview('custom', r.ok ? '将生成 ' + r.ranges.length + ' 个文件（共 ' + countPages(r.ranges) + ' 页）' : (r.error || '请输入范围，如 1-3,5'));
+    }
+  }
+
+  function setPreview(kind, text) {
+    const el = document.getElementById('pdf-' + kind + '-preview');
+    if (el) el.textContent = text;
+  }
+
+  function countPages(ranges) {
+    return ranges.reduce((s, r) => s + (r[1] - r[0] + 1), 0);
+  }
+
+  async function buildPdfFromRanges(ranges) {
+    const bytes = await PDF_SPLIT.file.arrayBuffer();
+    const src = await global.PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+    const out = await global.PDFLib.PDFDocument.create();
+    for (const r of ranges) {
+      const idx = [];
+      for (let i = r[0]; i <= r[1]; i++) idx.push(i - 1);
+      const pages = await out.copyPages(src, idx);
+      pages.forEach(p => out.addPage(p));
+    }
+    return out.save();
+  }
+
+  async function extractPages() {
+    if (!PDF_SPLIT.file) { UI.toast('请先上传 PDF 文件', 'warn'); return; }
+    const r = U.parsePageRanges(rangeInput.value, PDF_SPLIT.total);
+    if (!r.ok) { UI.toast(r.error, 'warn'); return; }
+    const btn = document.getElementById('pdf-extract-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 提取中…';
+    try {
+      const data = await buildPdfFromRanges(r.ranges);
+      downloadPdf(data, (PDF_SPLIT.file.name.replace(/\.pdf$/i, '') || 'pdf') + '-提取.pdf');
+      UI.toast('提取完成，共 ' + countPages(r.ranges) + ' 页', 'success');
+    } catch (err) { UI.toast('提取失败：' + err.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.textContent = '提取并下载';
+    }
+  }
+
+  async function splitEveryPages() {
+    if (!PDF_SPLIT.file) { UI.toast('请先上传 PDF 文件', 'warn'); return; }
+    const n = Math.max(1, Math.round(parseInt(everyInput.value, 10) || 1));
+    const ranges = splitEvery(PDF_SPLIT.total, n);
+    await runSplit(ranges, 'split');
+  }
+
+  async function customSplit() {
+    if (!PDF_SPLIT.file) { UI.toast('请先上传 PDF 文件', 'warn'); return; }
+    const r = U.parsePageRanges(customInput.value, PDF_SPLIT.total);
+    if (!r.ok) { UI.toast(r.error, 'warn'); return; }
+    await runSplit(r.ranges, 'custom');
+  }
+
+  async function runSplit(ranges, kind) {
+    const base = (PDF_SPLIT.file.name.replace(/\.pdf$/i, '') || 'pdf');
+    const btn = document.getElementById(kind === 'split' ? 'pdf-split-btn' : 'pdf-custom-btn');
+    btn.disabled = true;
+    try {
+      for (let i = 0; i < ranges.length; i++) {
+        btn.textContent = '⏳ 正在生成 ' + (i + 1) + '/' + ranges.length + '…';
+        const data = await buildPdfFromRanges([ranges[i]]);
+        downloadPdf(data, base + '-第' + (i + 1) + '部分.pdf');
+        await new Promise(res => setTimeout(res, 120));
+      }
+      UI.toast('拆分完成，共生成 ' + ranges.length + ' 个文件', 'success');
+    } catch (err) { UI.toast('拆分失败：' + err.message, 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.textContent = '拆分并下载';
+    }
+  }
+
+  function downloadPdf(bytes, name) {
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 }
 global.Stellarium.Router.register('tools', render, '实用小工具');

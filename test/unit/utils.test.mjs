@@ -28,6 +28,16 @@ test('utils: 金额与转义', () => {
   assert.equal(Utils.clamp(15, 0, 10), 10);
 });
 
+test('utils: 页码范围解析', () => {
+  assert.deepEqual(Utils.parsePageRanges('1-3,5,8-10', 10), { ok: true, ranges: [[1, 3], [5, 5], [8, 10]] });
+  assert.deepEqual(Utils.parsePageRanges('3-1', 5), { ok: true, ranges: [[1, 3]] });
+  assert.deepEqual(Utils.parsePageRanges('1,1-2', 5).ranges, [[1, 1], [1, 2]]);
+  assert.deepEqual(Utils.parsePageRanges('1；3-4，6', 6).ranges, [[1, 1], [3, 4], [6, 6]]);
+  assert.equal(Utils.parsePageRanges('1-11', 10).ok, false);
+  assert.equal(Utils.parsePageRanges('0', 10).ok, false);
+  assert.equal(Utils.parsePageRanges('a', 10).ok, false);
+  assert.equal(Utils.parsePageRanges('', 10).ok, false);
+});
 test('utils: uid 唯一', () => {
   assert.notEqual(Utils.uid(), Utils.uid());
 });

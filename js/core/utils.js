@@ -61,6 +61,32 @@
   function clamp(n, min, max) { return Math.min(max, Math.max(min, n)); }
 
   /* PDF 文件大小分级（单位：字节），黄金 ≤10MB / 舒适 ≤25MB / 谨慎 ≤50MB / 不推荐 >50MB */
+  /* 解析页码范围，如 "1-3,5,8-10"，返回规范化范围数组 [[start,end],...] */
+  function parsePageRanges(str, total) {
+    const ranges = [];
+    const parts = String(str).split(/[,，;；]/);
+    for (const raw of parts) {
+      const p = raw.trim();
+      if (!p) continue;
+      const m = p.match(/^(\d+)\s*-\s*(\d+)$/);
+      if (m) {
+        let a = parseInt(m[1], 10);
+        let b = parseInt(m[2], 10);
+        if (a > b) { const t = a; a = b; b = t; }
+        if (a < 1 || b > total) return { ok: false, error: '页码超出范围（共 ' + total + ' 页）' };
+        ranges.push([a, b]);
+      } else if (/^\d+$/.test(p)) {
+        const n = parseInt(p, 10);
+        if (n < 1 || n > total) return { ok: false, error: '页码超出范围（共 ' + total + ' 页）' };
+        ranges.push([n, n]);
+      } else {
+        return { ok: false, error: '无法识别的页码「' + p + '」（示例：1-3,5,8-10）' };
+      }
+    }
+    if (!ranges.length) return { ok: false, error: '请至少输入一个页码或范围' };
+    return { ok: true, ranges };
+  }
+
   function pdfSizeLevel(size) {
     const mb = size / 1048576;
     if (mb <= 10) return { level: 'gold', label: '黄金区间', desc: '≤10MB，处理速度最佳', warn: false, block: false };
@@ -93,7 +119,7 @@
 
   const Utils = {
     pad2, toDate, dateStr, todayStr, addDays, formatDateCN, weekdayCN, monthKey,
-    monthRange, weekStart, addMonths, uid, clamp, pdfSizeLevel, money, parseAmount, escapeHtml, monthDates
+    monthRange, weekStart, addMonths, uid, clamp, parsePageRanges, pdfSizeLevel, money, parseAmount, escapeHtml, monthDates
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Utils;

@@ -31,7 +31,7 @@ test('Phase17: 工具页新增 4 个 PDF 卡片且仅合并无即将上线标记
       assert.equal(await page.locator('.tool-card[data-tool="' + id + '"]').count(), 1);
     }
     assert.equal(await page.locator('.tool-card[data-tool="pdf-merge"] .soon').count(), 0);
-    assert.equal(await page.locator('.tool-card[data-tool="pdf-split"] .soon').count(), 1);
+    assert.equal(await page.locator('.tool-card[data-tool="pdf-split"] .soon').count(), 0);
     assert.equal(await page.locator('.tool-card[data-tool="pdf-word"] .soon').count(), 1);
     assert.equal(await page.locator('.tool-card[data-tool="pdf-ppt"] .soon').count(), 1);
     assertNoErrors(errors);
