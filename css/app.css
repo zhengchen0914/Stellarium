@@ -391,3 +391,112 @@ th { color: var(--text-2); font-weight: 600; font-size: 12px; }
   background: var(--card-solid); color: var(--text); font-size: 13px; font-family: inherit;
 }
 .note-form textarea:focus { outline: none; border-color: var(--accent); }
+/* ===== v0.5 视觉精修层 ===== */
+/* 滚动条与选区 */
+:root { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border); border-radius: 8px;
+  border: 2px solid transparent; background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); background-clip: padding-box; }
+::selection { background: var(--focus); color: var(--text); }
+
+/* 焦点可见性（可访问性） */
+.btn:focus-visible, .nav-item:focus-visible, .tab:focus-visible, .tool-card:focus-visible,
+.sum-card:focus-visible, .calc-btn:focus-visible, .note-act:focus-visible, .mood:focus-visible,
+.dice-type-btn:focus-visible, .pomo-mode-btn:focus-visible, .note-color-dot:focus-visible {
+  outline: 2px solid var(--focus); outline-offset: 2px;
+}
+
+/* 按压反馈（物理按压感） */
+.btn:active, .nav-item:active, .calc-btn:active, .tab:active, .note-act:active {
+  transform: translateY(1px) scale(0.98);
+}
+.sum-card:active, .tool-card:active, .week-cell:active, .note-card:active {
+  transform: translateY(1px) scale(0.99);
+}
+.btn:disabled { transform: none; }
+
+/* 侧边栏 */
+.sidebar {
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.nav-item { position: relative; transition: background 0.18s, color 0.18s, transform 0.12s; }
+.nav-item.active {
+  background: var(--hover);
+  box-shadow: inset 0 0 0 1px rgba(123, 164, 255, 0.2);
+}
+[data-theme="light"] .nav-item.active { box-shadow: inset 0 0 0 1px rgba(71, 105, 245, 0.18); }
+.nav-item.active::before {
+  content: ""; position: absolute; left: -12px; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 18px; border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+}
+.brand { letter-spacing: 3px; }
+.brand .star { text-shadow: 0 0 14px var(--focus); }
+
+/* 标题排版 */
+.page-title { letter-spacing: 0.02em; }
+.page-sub { margin-top: 6px; letter-spacing: 0.01em; }
+@media (min-width: 861px) { .main { padding: 26px 34px 72px; } }
+
+/* 卡片质感与悬停 */
+.card { transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
+.sum-card:hover, .tool-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-3px);
+}
+.t-ico { display: inline-block; transition: transform 0.2s; }
+.tool-card:hover .t-ico { transform: scale(1.14) rotate(-3deg); }
+.sum-card .s-value { font-size: 20px; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+.sum-card .s-title { letter-spacing: 0.02em; }
+
+/* 按钮 */
+.btn { border-radius: var(--radius-sm); letter-spacing: 0.01em; }
+.btn.primary { box-shadow: 0 8px 20px -10px var(--focus); }
+.btn.primary:hover { filter: brightness(1.07); transform: translateY(-1px); box-shadow: 0 12px 26px -10px var(--focus); }
+.btn.danger:hover { box-shadow: 0 8px 20px -10px rgba(248, 113, 113, 0.4); }
+
+/* 输入框焦点光晕 */
+input[type="text"]:focus, input[type="number"]:focus, input[type="date"]:focus,
+input[type="password"]:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+/* 弹层与提示 */
+.overlay { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.modal { border-radius: var(--radius); box-shadow: var(--shadow-lg); }
+.toast {
+  border-radius: var(--radius-pill); box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+
+/* Tab、表格、任务与日历 */
+.tab { transition: color 0.15s, border-color 0.15s, background 0.15s; }
+.tab:hover { background: var(--hover); }
+th { letter-spacing: 0.04em; }
+tbody tr { transition: background 0.15s; }
+tbody tr:hover { background: var(--hover); }
+.task, .list-item { transition: border-color 0.15s, transform 0.12s; }
+.task:hover, .list-item:hover { border-color: var(--accent); }
+.task .check { transition: all 0.15s; }
+.task .check:hover { border-color: var(--ok); transform: scale(1.12); }
+.mood { transition: all 0.18s; }
+.mood:hover { transform: scale(1.08); }
+.week-cell { transition: border-color 0.15s, transform 0.12s; }
+.week-cell:hover { transform: translateY(-1px); }
+.cal-cell.today { border-color: var(--accent); background: var(--hover); }
+.empty .ico { opacity: 0.9; }
+
+/* 减少动效偏好适配 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
