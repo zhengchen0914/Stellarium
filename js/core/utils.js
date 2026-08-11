@@ -62,6 +62,23 @@
 
   /* PDF 文件大小分级（单位：字节），黄金 ≤10MB / 舒适 ≤25MB / 谨慎 ≤50MB / 不推荐 >50MB */
   /* 解析页码范围，如 "1-3,5,8-10"，返回规范化范围数组 [[start,end],...] */
+  /* 按 y 坐标将 pdf.js 文本项分组为行，返回每行文本（行内按 x 排序） */
+  function groupTextItems(items) {
+    const rows = [];
+    for (const it of items || []) {
+      if (!it.str || !it.str.trim()) continue;
+      const y = Math.round((it.transform && it.transform[5]) || 0);
+      let row = rows.find(r => Math.abs(r.y - y) <= 2);
+      if (!row) { row = { y: y, items: [] }; rows.push(row); }
+      row.items.push(it);
+    }
+    rows.sort((a, b) => b.y - a.y);
+    return rows.map(r => {
+      r.items.sort((a, b) => (a.transform[4] || 0) - (b.transform[4] || 0));
+      return r.items.map(i => i.str).join('');
+    });
+  }
+
   function parsePageRanges(str, total) {
     const ranges = [];
     const parts = String(str).split(/[,，;；]/);
@@ -119,7 +136,7 @@
 
   const Utils = {
     pad2, toDate, dateStr, todayStr, addDays, formatDateCN, weekdayCN, monthKey,
-    monthRange, weekStart, addMonths, uid, clamp, parsePageRanges, pdfSizeLevel, money, parseAmount, escapeHtml, monthDates
+    monthRange, weekStart, addMonths, uid, clamp, parsePageRanges, groupTextItems, pdfSizeLevel, money, parseAmount, escapeHtml, monthDates
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Utils;

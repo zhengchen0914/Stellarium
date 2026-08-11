@@ -30,7 +30,7 @@ async function uploadPdf(page, file) {
   await page.locator('#pdf-split-input').setInputFiles(file);
   await page.waitForFunction(() => {
     const el = document.querySelector('#pdf-split-info');
-    return el && el.style.display !== 'none' && el.textContent.includes('共 6 页');
+    return el && el.style.display !== 'none';
   }, null, { timeout: 8000 });
 }
 
@@ -58,12 +58,25 @@ test('Phase18: 拆分/提取卡片无即将上线标记', async () => {
     await page.evaluate(() => window.Stellarium.Router.navigate('tools'));
     await page.waitForSelector('.tool-card');
     assert.equal(await page.locator('.tool-card[data-tool="pdf-split"] .soon').count(), 0);
-    assert.equal(await page.locator('.tool-card[data-tool="pdf-word"] .soon').count(), 1);
+    assert.equal(await page.locator('.tool-card[data-tool="pdf-word"] .soon').count(), 0);
     assert.equal(await page.locator('.tool-card[data-tool="pdf-ppt"] .soon').count(), 1);
     assertNoErrors(errors);
   } finally { await browser.close(); }
 });
 
+test('Phase18: 删除已上传的 PDF', async () => {
+  const { browser, page, errors } = await openApp();
+  try {
+    await openPdfSplit(page);
+    await uploadPdf(page, await makePdf(page, '待删除.pdf', 3));
+    await page.locator('#pdf-split-clear').click();
+    assert.equal(await page.locator('#pdf-split-info').isVisible(), false, '删除后文件信息应隐藏');
+    assert.equal(await page.locator('#pdf-extract-preview').textContent(), '', '预览应清空');
+    await uploadPdf(page, await makePdf(page, '新文件.pdf', 2));
+    assert.ok((await page.locator('#pdf-split-info').textContent()).includes('新文件.pdf'));
+    assertNoErrors(errors);
+  } finally { await browser.close(); }
+});
 test('Phase18: 提取页面并下载', async () => {
   const { browser, page, errors } = await openApp();
   try {

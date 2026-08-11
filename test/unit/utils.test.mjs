@@ -28,6 +28,17 @@ test('utils: 金额与转义', () => {
   assert.equal(Utils.clamp(15, 0, 10), 10);
 });
 
+test('utils: pdf.js 文本行分组', () => {
+  const items = [
+    { str: 'B', transform: [1, 0, 0, 1, 100, 300] },
+    { str: 'A', transform: [1, 0, 0, 1, 50, 300] },
+    { str: 'C', transform: [1, 0, 0, 1, 80, 200] },
+    { str: ' ', transform: [1, 0, 0, 1, 10, 100] },
+    { str: '', transform: [1, 0, 0, 1, 20, 100] }
+  ];
+  assert.deepEqual(Utils.groupTextItems(items), ['AB', 'C']);
+  assert.deepEqual(Utils.groupTextItems([]), []);
+});
 test('utils: 页码范围解析', () => {
   assert.deepEqual(Utils.parsePageRanges('1-3,5,8-10', 10), { ok: true, ranges: [[1, 3], [5, 5], [8, 10]] });
   assert.deepEqual(Utils.parsePageRanges('3-1', 5), { ok: true, ranges: [[1, 3]] });

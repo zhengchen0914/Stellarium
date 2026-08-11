@@ -530,3 +530,8 @@ tbody tr:hover { background: var(--hover); }
 .pdf-mode-panel { margin-top:14px; }
 .pdf-mode-actions { display:flex; gap:8px; margin-top:12px; }
 .pdf-preview { margin-top:10px; min-height:18px; }
+.pdf-options { margin-top:14px; padding:12px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--card-solid); display:flex; flex-direction:column; gap:8px; }
+.pdf-opt-line { display:flex; align-items:center; gap:8px; font-size:13px; }
+.pdf-opt-line select { min-width:140px; }
+.pdf-tip { color:var(--text-3); font-size:12px; line-height:1.6; }
+.pdf-file-info .btn { margin-left:auto; flex:none; }

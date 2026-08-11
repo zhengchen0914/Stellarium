@@ -18,7 +18,7 @@
         dataset: { tool: t.id },
         onclick: () => openTool(container, t)
       }, [
-        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice' || t.id === 'notes' || t.id === 'pdf-merge' || t.id === 'pdf-split') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
+        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice' || t.id === 'notes' || t.id === 'pdf-merge' || t.id === 'pdf-split' || t.id === 'pdf-word') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
         UI.el('div', { class: 't-ico' }, t.icon),
         UI.el('div', { class: 't-name' }, t.name)
       ]));
@@ -36,6 +36,7 @@
     if (tool.id === 'notes') { renderNotes(container); return; }
     if (tool.id === 'pdf-merge') { renderPdfMerge(container); return; }
     if (tool.id === 'pdf-split') { renderPdfSplit(container); return; }
+    if (tool.id === 'pdf-word') { renderPdfWord(container); return; }
     UI.toast('该工具暂未开发，敬请期待', 'info');
   }
 
@@ -1297,6 +1298,16 @@ function renderPdfSplit(container) {
   tabBtns[0].classList.add('active');
   updatePreview();
 
+  function resetFile() {
+    PDF_SPLIT.file = null;
+    PDF_SPLIT.total = 0;
+    fileInfo.style.display = 'none';
+    fileInfo.innerHTML = '';
+    rangeInput.value = '';
+    customInput.value = '';
+    updatePreview();
+  }
+
   function setMode(mode) {
     tabBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
     extractPanel.style.display = mode === 'extract' ? '' : 'none';
@@ -1325,15 +1336,14 @@ function renderPdfSplit(container) {
         UI.el('span', { class: 'pdf-badge ' + lv.level }, lv.label),
         UI.el('span', {}, '共 ' + PDF_SPLIT.total + ' 页')
       ]));
+      fileInfo.appendChild(UI.el('button', { class: 'btn sm danger', id: 'pdf-split-clear', onclick: () => resetFile() }, '删除'));
       rangeInput.value = '';
       customInput.value = '';
       everyInput.value = '10';
       updatePreview();
       UI.toast('已载入，共 ' + PDF_SPLIT.total + ' 页', 'success');
     } catch (err) {
-      PDF_SPLIT.file = null;
-      PDF_SPLIT.total = 0;
-      fileInfo.style.display = 'none';
+      resetFile();
       UI.toast('「' + f.name + '」读取失败（可能已加密或损坏）', 'error');
     } finally {
       drop.classList.remove('over');
@@ -1431,6 +1441,188 @@ function renderPdfSplit(container) {
 
   function downloadPdf(bytes, name) {
     const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+}
+/* ============ PDF → Word ============ */
+const PDF_WORD = { file: null, total: 0 };
+
+function renderPdfWord(container) {
+  PDF_WORD.file = null;
+  PDF_WORD.total = 0;
+  container.innerHTML = '';
+  container.appendChild(UI.el('div', { class: 'page-head' }, [
+    UI.el('h1', { class: 'page-title' }, 'PDF → Word'),
+    UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
+  ]));
+
+  const card = UI.el('div', { class: 'card pdf-panel' });
+  card.appendChild(UI.el('div', { class: 'pdf-level-bar' }, [
+    UI.el('span', { class: 'pdf-level gold' }, '≤10MB 黄金区间'),
+    UI.el('span', { class: 'pdf-level ok' }, '10~25MB 舒适'),
+    UI.el('span', { class: 'pdf-level caution' }, '25~50MB 谨慎'),
+    UI.el('span', { class: 'pdf-level no' }, '50~100MB 不推荐'),
+    UI.el('span', { class: 'pdf-level block' }, '>100MB 拒绝上传')
+  ]));
+
+  const input = UI.el('input', { type: 'file', accept: '.pdf,application/pdf', id: 'pdf-word-input', style: 'display:none' });
+  input.addEventListener('change', () => { loadFile(input.files[0]); input.value = ''; });
+  const drop = UI.el('div', { class: 'pdf-drop', id: 'pdf-word-drop', onclick: () => input.click() }, [
+    UI.el('div', { class: 'pdf-drop-ico' }, '📄'),
+    UI.el('div', { class: 'pdf-drop-txt' }, '点击选择或拖拽一个 PDF 到此处'),
+    UI.el('div', { class: 'muted sm' }, '单个文件超过 100MB 将被拒绝')
+  ]);
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('over');
+    if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+  card.appendChild(input);
+  card.appendChild(drop);
+
+  const fileInfo = UI.el('div', { class: 'pdf-file-info', id: 'pdf-word-info', style: 'display:none' });
+  card.appendChild(fileInfo);
+
+  const opts = UI.el('div', { class: 'pdf-options' });
+  const imgCheck = UI.el('input', { type: 'checkbox', id: 'pdf-word-images', checked: true });
+  const qSel = UI.selectInput([
+    ['1', '低（100%）'],
+    ['1.5', '中（150%，推荐）'],
+    ['2', '高（200%）']
+  ], '1.5', { id: 'pdf-word-quality' });
+  imgCheck.addEventListener('change', () => { qSel.disabled = !imgCheck.checked; });
+  qSel.disabled = false;
+  opts.appendChild(UI.el('label', { class: 'pdf-opt-line' }, [
+    imgCheck,
+    UI.el('span', {}, '包含页面图片（保留版面视觉）')
+  ]));
+  opts.appendChild(UI.el('div', { class: 'pdf-opt-line' }, [
+    UI.el('span', { class: 'muted' }, '图片清晰度：'),
+    qSel
+  ]));
+  opts.appendChild(UI.el('div', { class: 'pdf-tip muted sm' }, '说明：文字按页面顺序提取为可编辑段落，并附上页面快照。复杂表格/分栏/公式可能出现错位，属内容提取而非版式还原。'));
+  card.appendChild(opts);
+
+  const btn = UI.el('button', { class: 'btn primary lg', id: 'pdf-word-btn', disabled: true, onclick: () => convertToWord() }, '📝 转换为 Word');
+  card.appendChild(UI.el('div', { class: 'pdf-actions' }, btn));
+  const preview = UI.el('div', { class: 'pdf-preview muted sm', id: 'pdf-word-preview' }, '');
+  card.appendChild(preview);
+  container.appendChild(card);
+
+  function resetFile() {
+    PDF_WORD.file = null;
+    PDF_WORD.total = 0;
+    fileInfo.style.display = 'none';
+    fileInfo.innerHTML = '';
+    preview.textContent = '';
+    btn.disabled = true;
+  }
+
+  async function loadFile(f) {
+    if (!f) return;
+    if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') { UI.toast('「' + f.name + '」不是 PDF 文件', 'warn'); return; }
+    const lv = U.pdfSizeLevel(f.size);
+    if (lv.block) { UI.toast('「' + f.name + '」超过 100MB，不允许上传', 'error'); return; }
+    drop.classList.add('over');
+    try {
+      if (!global.PDFLib) throw new Error('PDF 处理库未加载');
+      const bytes = await f.arrayBuffer();
+      const doc = await global.PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+      PDF_WORD.file = f;
+      PDF_WORD.total = doc.getPageCount();
+      fileInfo.style.display = '';
+      fileInfo.innerHTML = '';
+      fileInfo.appendChild(UI.el('span', { class: 'pdf-name' }, f.name));
+      fileInfo.appendChild(UI.el('span', { class: 'pdf-meta' }, [
+        fmtSize(f.size),
+        UI.el('span', { class: 'pdf-badge ' + lv.level }, lv.label),
+        UI.el('span', {}, '共 ' + PDF_WORD.total + ' 页')
+      ]));
+      fileInfo.appendChild(UI.el('button', { class: 'btn sm danger', id: 'pdf-word-clear', onclick: () => resetFile() }, '删除'));
+      preview.textContent = '将转换 ' + PDF_WORD.total + ' 页为 Word 文档';
+      btn.disabled = false;
+      UI.toast('已载入，共 ' + PDF_WORD.total + ' 页', 'success');
+    } catch (err) {
+      PDF_WORD.file = null;
+      PDF_WORD.total = 0;
+      resetFile();
+      UI.toast('「' + f.name + '」读取失败（可能已加密或损坏）', 'error');
+    } finally {
+      drop.classList.remove('over');
+    }
+  }
+
+  async function convertToWord() {
+    if (!PDF_WORD.file) { UI.toast('请先上传 PDF 文件', 'warn'); return; }
+    if (!global.pdfjsLib || !global.docx) { UI.toast('转换组件未加载，请刷新页面后重试', 'error'); return; }
+    const { Document, Packer, Paragraph, TextRun, ImageRun, HeadingLevel } = global.docx;
+    const includeImages = imgCheck.checked;
+    const scale = parseFloat(qSel.value) || 1.5;
+    btn.disabled = true;
+    try {
+      global.pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/lib/pdf.worker.min.js';
+      const bytes = await PDF_WORD.file.arrayBuffer();
+      const pdf = await global.pdfjsLib.getDocument({ data: bytes }).promise;
+      const children = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        btn.textContent = '⏳ 正在处理第 ' + i + '/' + pdf.numPages + ' 页…';
+        const page = await pdf.getPage(i);
+        children.push(new Paragraph({
+          heading: HeadingLevel.HEADING_2,
+          children: [new TextRun('第 ' + i + ' 页')]
+        }));
+        try {
+          const content = await page.getTextContent();
+          const lines = U.groupTextItems(content.items);
+          if (lines.length) {
+            children.push(new Paragraph({ children: [new TextRun('【文字内容】')], spacing: { after: 60 } }));
+            lines.forEach(line => {
+              children.push(new Paragraph({ children: [new TextRun(line || ' ')] }));
+            });
+          }
+        } catch (e) { /* 文本提取失败则仅保留图片 */ }
+        if (includeImages) {
+          const viewport = page.getViewport({ scale: scale });
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.floor(viewport.width));
+          canvas.height = Math.max(1, Math.floor(viewport.height));
+          const ctx = canvas.getContext('2d');
+          await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+          const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+          const buf = await blob.arrayBuffer();
+          children.push(new Paragraph({ children: [new ImageRun({
+            type: 'jpg',
+            data: buf,
+            transformation: {
+              width: Math.round(viewport.width * 9525),
+              height: Math.round(viewport.height * 9525)
+            }
+          })] }));
+        }
+        children.push(new Paragraph({ children: [new TextRun('')] }));
+      }
+      const doc = new Document({ sections: [{ children: children }] });
+      const blob = await Packer.toBlob(doc);
+      const base = (PDF_WORD.file.name.replace(/\.pdf$/i, '') || 'pdf');
+      downloadBlob(blob, base + '-转Word.docx');
+      UI.toast('转换完成，共 ' + pdf.numPages + ' 页', 'success');
+    } catch (err) {
+      UI.toast('转换失败：' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📝 转换为 Word';
+    }
+  }
+
+  function downloadBlob(blob, name) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
