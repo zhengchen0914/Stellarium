@@ -16,7 +16,8 @@
       { id: 'pdf-merge', name: 'PDF 合并', icon: '📎' },
       { id: 'pdf-split', name: '拆分 / 提取页面', icon: '✂️' },
       { id: 'pdf-word', name: 'PDF → Word', icon: '📝' },
-      { id: 'pdf-ppt', name: 'PDF → PPT', icon: '📊' }
+      { id: 'pdf-ppt', name: 'PDF → PPT', icon: '📊' },
+      { id: 'ppt-beautify', name: 'PPT 美化', icon: '🎨' }
   ];
   const GAMES = [
     { id: '2048', name: '2048', icon: '🎮' },

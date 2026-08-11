@@ -26,7 +26,7 @@ test('Phase10: 打开计算器并返回工具列表', async () => {
     assert.equal(await page.locator('.calc-btn').count(), 20);
     await page.getByRole('button', { name: '← 返回工具列表' }).click();
     await page.waitForSelector('.tool-card');
-    assert.equal(await page.locator('.tool-card').count(), 11);
+    assert.equal(await page.locator('.tool-card').count(), 12);
     assertNoErrors(errors);
   } finally { await browser.close(); }
 });

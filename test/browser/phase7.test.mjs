@@ -8,7 +8,7 @@ test('Phase7: 工具全部上线且游戏占位卡片提示未开发', async () 
   try {
     await page.evaluate(() => window.Stellarium.Router.navigate('tools'));
     await page.waitForSelector('.tool-card');
-    assert.equal(await page.locator('.tool-card').count(), 11);
+    assert.equal(await page.locator('.tool-card').count(), 12);
     assert.equal(await page.locator('.tool-card .soon').count(), 0, '全部工具均已上线');
     await page.evaluate(() => window.Stellarium.Router.navigate('games'));
     await page.waitForSelector('.tool-card');

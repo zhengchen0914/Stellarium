@@ -18,7 +18,7 @@
         dataset: { tool: t.id },
         onclick: () => openTool(container, t)
       }, [
-        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice' || t.id === 'notes' || t.id === 'pdf-merge' || t.id === 'pdf-split' || t.id === 'pdf-word' || t.id === 'pdf-ppt') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
+        (t.id === 'calc' || t.id === 'rand' || t.id === 'convert' || t.id === 'pomodoro' || t.id === 'lottery' || t.id === 'dice' || t.id === 'notes' || t.id === 'pdf-merge' || t.id === 'pdf-split' || t.id === 'pdf-word' || t.id === 'pdf-ppt' || t.id === 'ppt-beautify') ? null : UI.el('span', { class: 'soon' }, '即将上线'),
         UI.el('div', { class: 't-ico' }, t.icon),
         UI.el('div', { class: 't-name' }, t.name)
       ]));
@@ -38,6 +38,7 @@
     if (tool.id === 'pdf-split') { renderPdfSplit(container); return; }
     if (tool.id === 'pdf-word') { renderPdfWord(container); return; }
     if (tool.id === 'pdf-ppt') { renderPdfPpt(container); return; }
+    if (tool.id === 'ppt-beautify') { renderPptBeautify(container); return; }
     UI.toast('该工具暂未开发，敬请期待', 'info');
   }
 
@@ -1224,6 +1225,7 @@ function renderPdfSplit(container) {
     UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
   ]));
 
+  let pptx = null;
   const card = UI.el('div', { class: 'card pdf-panel' });
   card.appendChild(UI.el('div', { class: 'pdf-level-bar' }, [
     UI.el('span', { class: 'pdf-level gold' }, '≤10MB 黄金区间'),
@@ -1464,6 +1466,7 @@ function renderPdfWord(container) {
     UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
   ]));
 
+  let pptx = null;
   const card = UI.el('div', { class: 'card pdf-panel' });
   card.appendChild(UI.el('div', { class: 'pdf-level-bar' }, [
     UI.el('span', { class: 'pdf-level gold' }, '≤10MB 黄金区间'),
@@ -1646,6 +1649,7 @@ function renderPdfPpt(container) {
     UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
   ]));
 
+  let pptx = null;
   const card = UI.el('div', { class: 'card pdf-panel' });
   card.appendChild(UI.el('div', { class: 'pdf-level-bar' }, [
     UI.el('span', { class: 'pdf-level gold' }, '≤10MB 黄金区间'),
@@ -1806,6 +1810,245 @@ function renderPdfPpt(container) {
     } finally {
       btn.disabled = false;
       btn.textContent = '📊 转换为 PPT';
+    }
+  }
+}
+/* ============ PPT 美化 ============ */
+const PPT_TEMPLATES = [
+  { id: 'stellium', name: '星夜蓝紫', bg: '0D1B3E', accent: '7AA2FF', title: 'FFFFFF', text: 'E8ECFF', sub: '9FB0E0' },
+  { id: 'business', name: '商务深蓝', bg: '10294B', accent: '4DA3FF', title: 'FFFFFF', text: 'F0F6FF', sub: '9CC2E8' },
+  { id: 'warm', name: '简约暖灰', bg: 'F6F4F1', accent: 'D97706', title: '1F2937', text: '374151', sub: '6B7280' }
+];
+const PPT_BEAUTIFY = { file: null, parsed: null, tpl: 'stellium' };
+
+function renderPptBeautify(container) {
+  PPT_BEAUTIFY.file = null;
+  PPT_BEAUTIFY.parsed = null;
+  PPT_BEAUTIFY.tpl = 'stellium';
+  container.innerHTML = '';
+  container.appendChild(UI.el('div', { class: 'page-head' }, [
+    UI.el('h1', { class: 'page-title' }, 'PPT 美化'),
+    UI.el('button', { class: 'btn sm ghost', onclick: () => render(container) }, '← 返回工具列表')
+  ]));
+
+  let pptx = null;
+  const card = UI.el('div', { class: 'card pdf-panel' });
+  card.appendChild(UI.el('div', { class: 'pdf-level-bar' }, [
+    UI.el('span', { class: 'pdf-level gold' }, '≤10MB 黄金区间'),
+    UI.el('span', { class: 'pdf-level ok' }, '10~25MB 舒适'),
+    UI.el('span', { class: 'pdf-level caution' }, '25~50MB 谨慎'),
+    UI.el('span', { class: 'pdf-level no' }, '50~100MB 不推荐'),
+    UI.el('span', { class: 'pdf-level block' }, '>100MB 拒绝上传')
+  ]));
+
+  const input = UI.el('input', { type: 'file', accept: '.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation', id: 'ppt-beautify-input', style: 'display:none' });
+  input.addEventListener('change', () => { loadFile(input.files[0]); input.value = ''; });
+  const drop = UI.el('div', { class: 'pdf-drop', id: 'ppt-beautify-drop', onclick: () => input.click() }, [
+    UI.el('div', { class: 'pdf-drop-ico' }, '🎨'),
+    UI.el('div', { class: 'pdf-drop-txt' }, '点击选择或拖拽一个 PPTX 到此处'),
+    UI.el('div', { class: 'muted sm' }, '单个文件超过 100MB 将被拒绝')
+  ]);
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('over');
+    if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+  card.appendChild(input);
+  card.appendChild(drop);
+
+  const fileInfo = UI.el('div', { class: 'pdf-file-info', id: 'ppt-beautify-info', style: 'display:none' });
+  card.appendChild(fileInfo);
+  const parseInfo = UI.el('div', { class: 'pdf-preview muted sm', id: 'ppt-beautify-parse' }, '');
+  card.appendChild(parseInfo);
+
+  const opts = UI.el('div', { class: 'pdf-options' });
+  const tplBar = UI.el('div', { class: 'ppt-tpl-bar', id: 'ppt-beautify-tpls' });
+  const tplBtns = PPT_TEMPLATES.map(t => UI.el('button', {
+    class: 'btn sm ppt-tpl-btn' + (t.id === PPT_BEAUTIFY.tpl ? ' active' : ''),
+    dataset: { tpl: t.id },
+    onclick: () => {
+      PPT_BEAUTIFY.tpl = t.id;
+      tplBtns.forEach(b => b.classList.toggle('active', b.dataset.tpl === t.id));
+    }
+  }, t.name));
+  tplBtns.forEach(b => tplBar.appendChild(b));
+  opts.appendChild(UI.el('div', { class: 'pdf-opt-line' }, [
+    UI.el('span', { class: 'muted' }, '美化模板：'),
+    tplBar
+  ]));
+  opts.appendChild(UI.el('div', { class: 'pdf-tip muted sm' }, '说明：自动提取每页文字与图片，统一套用模板重新排版（封面/内容/图文/纯图四类版式）。原精细版式、动画与图表不会保留，适合文字/图文型 PPT。'));
+  card.appendChild(opts);
+
+  const btn = UI.el('button', { class: 'btn primary lg', id: 'ppt-beautify-btn', disabled: true, onclick: () => generateBeautified() }, '🎨 生成美化 PPT');
+  card.appendChild(UI.el('div', { class: 'pdf-actions' }, btn));
+  container.appendChild(card);
+
+  function resetFile() {
+    PPT_BEAUTIFY.file = null;
+    PPT_BEAUTIFY.parsed = null;
+    fileInfo.style.display = 'none';
+    fileInfo.innerHTML = '';
+    parseInfo.textContent = '';
+    btn.disabled = true;
+  }
+
+  async function loadFile(f) {
+    if (!f) return;
+    if (!/\.pptx$/i.test(f.name)) { UI.toast('「' + f.name + '」不是 PPTX 文件', 'warn'); return; }
+    const lv = U.pdfSizeLevel(f.size);
+    if (lv.block) { UI.toast('「' + f.name + '」超过 100MB，不允许上传', 'error'); return; }
+    drop.classList.add('over');
+    try {
+      if (!global.JSZip || !global.PptxGenJS) throw new Error('PPT 组件未加载');
+      const parsed = await parsePptxFile(f);
+      if (!parsed.slides.length) throw new Error('未找到任何幻灯片页');
+      PPT_BEAUTIFY.file = f;
+      PPT_BEAUTIFY.parsed = parsed;
+      fileInfo.style.display = '';
+      fileInfo.innerHTML = '';
+      fileInfo.appendChild(UI.el('span', { class: 'pdf-name' }, f.name));
+      fileInfo.appendChild(UI.el('span', { class: 'pdf-meta' }, [
+        fmtSize(f.size),
+        UI.el('span', { class: 'pdf-badge ' + lv.level }, lv.label),
+        UI.el('span', {}, '共 ' + parsed.slides.length + ' 页')
+      ]));
+      fileInfo.appendChild(UI.el('button', { class: 'btn sm danger', id: 'ppt-beautify-clear', onclick: () => resetFile() }, '删除'));
+      const textCount = parsed.slides.reduce((s, x) => s + x.texts.length, 0);
+      const imgCount = parsed.slides.reduce((s, x) => s + x.images.length, 0);
+      parseInfo.textContent = '解析完成：提取文字 ' + textCount + ' 段、图片 ' + imgCount + ' 张';
+      btn.disabled = false;
+      UI.toast('已载入并解析，共 ' + parsed.slides.length + ' 页', 'success');
+    } catch (err) {
+      resetFile();
+      UI.toast('「' + f.name + '」解析失败（' + (err.message || '文件可能已损坏') + '）', 'error');
+    } finally {
+      drop.classList.remove('over');
+    }
+  }
+
+  async function parsePptxFile(f) {
+    const bytes = await f.arrayBuffer();
+    const zip = await global.JSZip.loadAsync(bytes);
+    const re = /^ppt\/slides\/slide(\d+)\.xml$/;
+    const names = Object.keys(zip.files).filter(n => re.test(n) && !zip.files[n].dir)
+      .sort((a, b) => parseInt(a.match(re)[1], 10) - parseInt(b.match(re)[1], 10));
+    const slides = [];
+    for (const name of names) {
+      const xml = await zip.file(name).async('string');
+      const doc = new DOMParser().parseFromString(xml, 'application/xml');
+      const paras = doc.getElementsByTagName('a:p');
+      const texts = [];
+      for (const p of paras) {
+        const parts = p.getElementsByTagName('a:t');
+        let line = '';
+        for (const t of parts) line += t.textContent;
+        if (line.trim()) texts.push(line.trim());
+      }
+      const blips = doc.getElementsByTagName('a:blip');
+      const rids = [];
+      for (const b of blips) {
+        const rid = b.getAttribute('r:embed') || b.getAttribute('r:link');
+        if (rid) rids.push(rid);
+      }
+      const images = [];
+      if (rids.length) {
+        const m = name.match(/^ppt\/slides\/(slide\d+)\.xml$/);
+        const relsName = 'ppt/slides/_rels/' + m[1] + '.xml.rels';
+        const relsXml = zip.file(relsName) ? await zip.file(relsName).async('string') : '';
+        const relMap = {};
+        if (relsXml) {
+          const rdoc = new DOMParser().parseFromString(relsXml, 'application/xml');
+          const rels = rdoc.getElementsByTagName('Relationship');
+          for (const r of rels) relMap[r.getAttribute('Id')] = r.getAttribute('Target');
+        }
+        for (const rid of rids) {
+          const target = relMap[rid];
+          if (!target) continue;
+          const mediaPath = 'ppt/media/' + target.split('/').pop();
+          const fz = zip.file(mediaPath);
+          if (!fz) continue;
+          const b64 = await fz.async('base64');
+          const ext = (mediaPath.split('.').pop() || 'png').toLowerCase();
+          const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'gif' ? 'image/gif' : 'image/png';
+          images.push({ dataUrl: 'data:' + mime + ';base64,' + b64 });
+        }
+      }
+      slides.push({ texts: texts, images: images });
+    }
+    return { slides: slides };
+  }
+
+  function addBg(tmpl) {
+    const s = pptx.addSlide();
+    s.background = { color: tmpl.bg };
+    s.addShape('rect', { x: 0, y: 0, w: 0.14, h: 7.5, fill: { color: tmpl.accent } });
+    return s;
+  }
+
+  function addFooter(s, pageNo, total, tmpl) {
+    s.addText(String(pageNo) + ' / ' + String(total), { x: 11.6, y: 7.05, w: 1.4, h: 0.3, fontSize: 11, color: tmpl.sub, align: 'right', fontFace: 'Microsoft YaHei' });
+  }
+
+  function bodyTexts(body, tmpl) {
+    return body.map(line => ({ text: line, options: { fontSize: 16, color: tmpl.text, breakLine: true, bullet: { code: '2022' } } }));
+  }
+
+  async function generateBeautified() {
+    if (!PPT_BEAUTIFY.file || !PPT_BEAUTIFY.parsed) { UI.toast('请先上传并解析 PPTX 文件', 'warn'); return; }
+    const tmpl = PPT_TEMPLATES.find(t => t.id === PPT_BEAUTIFY.tpl) || PPT_TEMPLATES[0];
+    btn.disabled = true;
+    pptx = new global.PptxGenJS();
+    pptx.defineLayout({ name: 'WIDE', width: 13.33, height: 7.5 });
+    pptx.layout = 'WIDE';
+    try {
+      const slides = PPT_BEAUTIFY.parsed.slides;
+      const total = slides.length;
+      for (let i = 0; i < total; i++) {
+        btn.textContent = '⏳ 正在美化第 ' + (i + 1) + '/' + total + ' 页…';
+        await renderSlide(slides[i], i, total, tmpl);
+      }
+      btn.textContent = '⏳ 正在打包…';
+      const base = (PPT_BEAUTIFY.file.name.replace(/\.pptx$/i, '') || 'ppt');
+      await pptx.writeFile({ fileName: base + '-美化.pptx' });
+      UI.toast('美化完成，共 ' + total + ' 页', 'success');
+    } catch (err) {
+      UI.toast('美化失败：' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🎨 生成美化 PPT';
+    }
+  }
+
+  function renderSlide(slide, idx, total, tmpl) {
+    const isCover = idx === 0;
+    if (isCover) {
+      const s = addBg(tmpl);
+      const pick = U.pickCoverTexts(slide.texts);
+      s.addText(pick.title || '未命名演示文稿', { x: 1.2, y: 2.2, w: 11, h: 1.8, fontSize: 40, bold: true, color: tmpl.title, fontFace: 'Microsoft YaHei' });
+      s.addShape('rect', { x: 1.3, y: 4.0, w: 1.6, h: 0.08, fill: { color: tmpl.accent } });
+      if (pick.subtitle) s.addText(pick.subtitle, { x: 1.2, y: 4.3, w: 11, h: 1.0, fontSize: 18, color: tmpl.sub, fontFace: 'Microsoft YaHei' });
+      if (slide.images.length) s.addImage({ data: slide.images[0].dataUrl, x: 8.4, y: 1.8, w: 3.6, h: 3.9, sizing: { type: 'contain', w: 3.6, h: 3.9 } });
+      addFooter(s, idx + 1, total, tmpl);
+    } else if (slide.images.length && !slide.texts.length) {
+      const s = addBg(tmpl);
+      s.addImage({ data: slide.images[0].dataUrl, x: 0.7, y: 0.7, w: 11.9, h: 6.1, sizing: { type: 'contain', w: 11.9, h: 6.1 } });
+      addFooter(s, idx + 1, total, tmpl);
+    } else if (slide.images.length) {
+      const s = addBg(tmpl);
+      const pick = U.pickContentParts(slide.texts);
+      s.addText(pick.title || '（无标题）', { x: 0.9, y: 0.55, w: 11.5, h: 0.9, fontSize: 28, bold: true, color: tmpl.accent, fontFace: 'Microsoft YaHei' });
+      s.addShape('rect', { x: 0.95, y: 1.45, w: 1.3, h: 0.06, fill: { color: tmpl.accent } });
+      s.addImage({ data: slide.images[0].dataUrl, x: 7.5, y: 1.9, w: 4.8, h: 4.4, sizing: { type: 'contain', w: 4.8, h: 4.4 } });
+      if (pick.body.length) s.addText(bodyTexts(pick.body, tmpl), { x: 0.95, y: 1.95, w: 6.0, h: 4.3, fontFace: 'Microsoft YaHei', valign: 'top' });
+      addFooter(s, idx + 1, total, tmpl);
+    } else {
+      const s = addBg(tmpl);
+      const pick = U.pickContentParts(slide.texts);
+      s.addText(pick.title || '（无标题）', { x: 0.9, y: 0.55, w: 11.5, h: 0.9, fontSize: 28, bold: true, color: tmpl.accent, fontFace: 'Microsoft YaHei' });
+      s.addShape('rect', { x: 0.95, y: 1.45, w: 1.3, h: 0.06, fill: { color: tmpl.accent } });
+      if (pick.body.length) s.addText(bodyTexts(pick.body, tmpl), { x: 0.95, y: 1.95, w: 11.4, h: 4.6, fontFace: 'Microsoft YaHei', valign: 'top' });
+      addFooter(s, idx + 1, total, tmpl);
     }
   }
 }

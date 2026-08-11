@@ -62,6 +62,19 @@
 
   /* PDF 文件大小分级（单位：字节），黄金 ≤10MB / 舒适 ≤25MB / 谨慎 ≤50MB / 不推荐 >50MB */
   /* 解析页码范围，如 "1-3,5,8-10"，返回规范化范围数组 [[start,end],...] */
+  /* PPT 美化：封面页标题与副标题分配 */
+  function pickCoverTexts(texts) {
+    const t = (texts || []).map(s => String(s).trim()).filter(Boolean);
+    if (!t.length) return { title: '', subtitle: '' };
+    return { title: t[0], subtitle: t.slice(1).join(' · ') };
+  }
+
+  /* PPT 美化：内容页标题与正文分配（首段作标题，其余作正文） */
+  function pickContentParts(texts) {
+    const t = (texts || []).map(s => String(s).trim()).filter(Boolean);
+    if (!t.length) return { title: '', body: [] };
+    return { title: t[0], body: t.slice(1) };
+  }
   /* 按 y 坐标将 pdf.js 文本项分组为行，返回每行文本（行内按 x 排序） */
   function groupTextItems(items) {
     const rows = [];
@@ -136,7 +149,7 @@
 
   const Utils = {
     pad2, toDate, dateStr, todayStr, addDays, formatDateCN, weekdayCN, monthKey,
-    monthRange, weekStart, addMonths, uid, clamp, parsePageRanges, groupTextItems, pdfSizeLevel, money, parseAmount, escapeHtml, monthDates
+    monthRange, weekStart, addMonths, uid, clamp, parsePageRanges, groupTextItems, pickCoverTexts, pickContentParts, pdfSizeLevel, money, parseAmount, escapeHtml, monthDates
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = Utils;

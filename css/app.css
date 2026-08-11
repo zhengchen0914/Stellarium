@@ -535,3 +535,6 @@ tbody tr:hover { background: var(--hover); }
 .pdf-opt-line select { min-width:140px; }
 .pdf-tip { color:var(--text-3); font-size:12px; line-height:1.6; }
 .pdf-file-info .btn { margin-left:auto; flex:none; }
+.ppt-tpl-bar { display:flex; gap:8px; flex-wrap:wrap; }
+.ppt-tpl-btn { border:1px solid var(--border); background:var(--card-solid); color:var(--text-2); }
+.ppt-tpl-btn.active { color:#fff; background:linear-gradient(135deg, var(--accent), var(--accent-2)); border-color:transparent; font-weight:600; }

@@ -92,7 +92,7 @@ test('Phase12: 数据存储与返回', async () => {
     assert.equal(await result(page), '1024 KB');
     await page.getByRole('button', { name: '← 返回工具列表' }).click();
     await page.waitForSelector('.tool-card');
-    assert.equal(await page.locator('.tool-card').count(), 11);
+    assert.equal(await page.locator('.tool-card').count(), 12);
     assertNoErrors(errors);
   } finally { await browser.close(); }
 });

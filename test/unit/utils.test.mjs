@@ -28,6 +28,14 @@ test('utils: 金额与转义', () => {
   assert.equal(Utils.clamp(15, 0, 10), 10);
 });
 
+test('utils: PPT 版式文字分配', () => {
+  assert.deepEqual(Utils.pickCoverTexts(['季度总结', '2026 Q3', '内部资料']), { title: '季度总结', subtitle: '2026 Q3 · 内部资料' });
+  assert.deepEqual(Utils.pickCoverTexts(['只有标题']), { title: '只有标题', subtitle: '' });
+  assert.deepEqual(Utils.pickCoverTexts([]), { title: '', subtitle: '' });
+  assert.deepEqual(Utils.pickContentParts(['项目进展', '第一条', '第二条']), { title: '项目进展', body: ['第一条', '第二条'] });
+  assert.deepEqual(Utils.pickContentParts(['仅标题']), { title: '仅标题', body: [] });
+  assert.deepEqual(Utils.pickContentParts(['  ', '内容']), { title: '内容', body: [] });
+});
 test('utils: pdf.js 文本行分组', () => {
   const items = [
     { str: 'B', transform: [1, 0, 0, 1, 100, 300] },
